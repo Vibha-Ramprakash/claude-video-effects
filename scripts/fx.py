@@ -14,7 +14,9 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONT = {k: os.path.join(ROOT, 'fonts', v) for k, v in {
     'bold': 'ArchivoBlack-Regular.ttf', 'serif': 'InstrumentSerif-Italic.ttf', 'mono': 'SpaceMono-Bold.ttf',
-    'hand': 'PermanentMarker-Regular.ttf', 'ui': 'Inter.ttf'}.items()}
+    'hand': 'PermanentMarker-Regular.ttf', 'ui': 'Inter.ttf', 'uim': 'Inter.ttf', 'uib': 'Inter.ttf',
+    'anton': 'Anton-Regular.ttf', 'mont': 'Montserrat.ttf', 'monts': 'Montserrat.ttf', 'montb': 'Montserrat.ttf'}.items()}
+WGHT = {'ui': (24, 640), 'uim': (24, 540), 'uib': (32, 860), 'mont': (700,), 'monts': (600,), 'montb': (800,)}  # Inter variable: (optical size, weight)
 CREAM, INK, PEACH, YELLOW = (244, 233, 216), (22, 22, 24), (255, 183, 165), (255, 214, 10)
 NAMES = ['The Noise', 'The Lineup', 'Locked On', 'Orbit', 'Lean-In', 'Backdrop Word', 'Spotlight', 'The Bill',
          'Moody', 'Swipe', 'The To-Do', 'Comment Box', 'The Tap', 'Pause & Point', 'Uninstall', 'Reel Frame',
@@ -22,7 +24,12 @@ NAMES = ['The Noise', 'The Lineup', 'Locked On', 'Orbit', 'Lean-In', 'Backdrop W
 EFFECTS = {}
 ALIASES = {'the-noise': 'noise', 'the-lineup': 'lineup', 'bill': 'the-bill', 'to-do': 'todo', 'the-todo': 'todo', 'the-to-do': 'todo',
            'the-tap': 'tap', 'follow': 'tap', 'comment': 'comment-box', 'pause': 'pause-point', 'pause-and-point': 'pause-point',
-           'backdrop': 'backdrop-word', 'stamp': 'reject-stamp', 'countdown': 'countdown-flip', 'cover': 'cover-star', 'rain': 'shortcut-rain'}
+           'backdrop': 'backdrop-word', 'stamp': 'reject-stamp', 'countdown': 'countdown-flip', 'cover': 'cover-star', 'rain': 'shortcut-rain',
+           'glass': 'glass-widgets', 'widgets': 'glass-widgets', 'collage': 'red-collage', 'split': 'split-headline', 'pastel': 'pastel-word',
+           'pills': 'check-pills', 'auto-edit': 'timeline', 'headline': 'headline-box', 'wall': 'profile-wall', 'tiers': 'tier-list',
+           'tier': 'tier-list', 'broll': 'broll-split', 'b-roll': 'broll-split', 'fan': 'phone-fan', 'dots': 'dot-reveal',
+           'headlines': 'headline-wall', 'tasks': 'checklist'}
+CARD_FX = ('noise', 'orbit', 'check-pills', 'profile-wall', 'phone-fan', 'broll-split', 'timeline')
 
 
 def effect(name, desc):
@@ -49,8 +56,8 @@ def font(kind, size):
     k = (kind, int(size))
     if k not in _fc:
         f = ImageFont.truetype(FONT[kind], max(6, int(size)))
-        if kind == 'ui':
-            try: f.set_variation_by_axes([24, 640])
+        if kind in WGHT:
+            try: f.set_variation_by_axes(list(WGHT[kind]))
             except Exception: pass
         _fc[k] = f
     return _fc[k]
@@ -416,8 +423,7 @@ def heart(size, color=(255, 48, 64)):
     d.polygon(pts, fill=color + (255,)); return im
 
 
-@effect('comment-box', 'an Instagram comment bar types your word and posts it')
-def fx_comment_box(c, e):
+def comment_bar(c, e):
     word = e.o.get('text', 'EFFECTS')
     bw, bh = int(c.W * 0.9), int(c.W * 0.11)
     slide = ease_out(c.lt / 0.3); y = c.H * 0.8 + (1 - slide) * c.H * 0.25
@@ -693,6 +699,770 @@ def fx_scribble(c, e):
         place(c, lab, lx, ly - lab.height * 0.15, 0.7 + 0.3 * ease_back((c.lt - 0.7) / 0.3), 8, al)
 
 
+# ---------- pack 2: app-style effects (added 21 Oct 2026) ----------
+def pop(c, t0, dur=0.3): return ease_back((c.lt - t0) / dur) if c.lt > t0 else 0.0
+def fade(c, e, t=0.2): return clamp((e.d - c.lt) / t)
+GREEN, BLUE, PURPLE, ORANGE, RED = (34, 197, 94), (10, 132, 255), (124, 92, 255), (217, 119, 87), (238, 34, 34)
+
+
+def glass(c, w, h, r, cx, cy, amt=0.22, tint=(255, 255, 255), blur=None, alpha=240, dark=0.0):
+    """A frosted glass panel: a blurred, tinted copy of whatever sits behind it."""
+    w, h = int(w), int(h); blur = blur or max(8, c.W // 40); pad = blur * 2
+    x0, y0 = int(cx - w / 2), int(cy - h / 2)
+    xs = np.clip(np.arange(x0 - pad, x0 + w + pad), 0, c.W - 1); ys = np.clip(np.arange(y0 - pad, y0 + h + pad), 0, c.H - 1)
+    reg = cv2.GaussianBlur(np.ascontiguousarray(c.img[np.ix_(ys, xs)]), (0, 0), blur)[pad:pad + h, pad:pad + w]
+    reg = reg * (1 - dark) * (1 - amt) + np.float32(tint) / 255 * amt
+    im = Image.fromarray((np.clip(reg, 0, 1) * 255).astype(np.uint8)).convert('RGBA')
+    m = Image.new('L', (w, h), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, w - 1, h - 1], int(r), fill=alpha); im.putalpha(m)
+    ImageDraw.Draw(im).rounded_rectangle([1, 1, w - 2, h - 2], int(r), outline=(255, 255, 255, 120), width=max(2, c.W // 540))
+    return im
+
+
+def face_chip(c, e, size):
+    """A round avatar cut from your own face (grabbed once, at the start of the effect)."""
+    def grab():
+        r = c.fw * 0.9; x0, y0 = int(max(0, c.fx - r)), int(max(0, c.fy - r * 1.05))
+        crop = c.img[y0:int(y0 + 2 * r), x0:int(x0 + 2 * r)]
+        im = Image.fromarray((np.clip(crop, 0, 1) * 255).astype(np.uint8)).convert('RGBA')
+        return im
+    src = cached(e, 'face', grab).resize((int(size), int(size)), Image.LANCZOS)
+    m = Image.new('L', src.size, 0); ImageDraw.Draw(m).ellipse([0, 0, src.width - 1, src.height - 1], fill=255); src.putalpha(m)
+    return src
+
+
+def cursor(size):
+    s = float(size); im = Image.new('RGBA', (int(s * 0.95), int(s * 1.45)), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    pts = [(3, 3), (3, s * 1.12), (s * 0.3, s * 0.87), (s * 0.5, s * 1.33), (s * 0.66, s * 1.26), (s * 0.46, s * 0.8), (s * 0.82, s * 0.8)]
+    d.polygon(pts, fill=(255, 255, 255, 255)); d.line(pts + [pts[0]], fill=(0, 0, 0, 255), width=max(2, int(s / 14)), joint='curve')
+    return shadowed(im, 6, 3, 110)
+
+
+def tick(d, x, y, s, color=(255, 255, 255, 255), w=None):
+    d.line([(x, y + s * 0.5), (x + s * 0.36, y + s * 0.85), (x + s, y + s * 0.1)], fill=color, width=w or max(3, int(s / 5)), joint='curve')
+
+
+def lines_fit(lines, max_w, kind, start):
+    size = start
+    while size > 10 and max(font(kind, size).getlength(l) for l in lines) > max_w: size = int(size * 0.94)
+    return size
+
+
+def shift(c, dy):
+    """Slide the whole picture (and you) down by dy pixels."""
+    if abs(dy) < 0.5: return
+    M = np.float32([[1, 0, 0], [0, 1, dy]])
+    c.img = cv2.warpAffine(c.img, M, (c.W, c.H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+    c.m = cv2.warpAffine(c.m, M, (c.W, c.H), flags=cv2.INTER_LINEAR); c.fy += dy
+
+
+def thumb_grid(cards, cols, rows, cell, gap, i0=0, look=True):
+    im = Image.new('RGBA', (cols * cell + (cols - 1) * gap, rows * int(cell * 1.25) + (rows - 1) * gap), (0, 0, 0, 0))
+    ch = int(cell * 1.25)
+    for k in range(cols * rows):
+        src = cards[(i0 + k) % len(cards)]; src = vary(src, i0 + k) if look else src.convert('RGB')
+        sw, sh = src.size; s = max(cell / sw, ch / sh); t = src.resize((max(cell, int(sw * s)), max(ch, int(sh * s))), Image.LANCZOS)
+        l, tp = (t.width - cell) // 2, int((t.height - ch) * 0.3); t = t.crop((l, tp, l + cell, tp + ch)).convert('RGBA')
+        m = Image.new('L', t.size, 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, cell - 1, ch - 1], max(4, cell // 12), fill=255); t.putalpha(m)
+        im.alpha_composite(t, ((k % cols) * (cell + gap), (k // cols) * (ch + gap)))
+    return im
+
+
+def glass_widgets_v1(c, e):
+    k0 = ramp(c, e, 0.3, 0)
+    if e.o.get('grade', 'warm') != 'none': c.img = c.img * (1 - 0.6 * k0) + grade(c.img, e.o.get('grade', 'warm')) * 0.6 * k0
+    al = fade(c, e); W = c.W; mg = W * 0.055
+    S = W * 0.31; y_top = c.H * 0.07
+    gd = float(e.o.get('dark', 0.2))
+    a = glass(c, S, S, S * 0.2, mg + S / 2, y_top + S / 2, amt=0.14, dark=gd); d = ImageDraw.Draw(a)
+    d.ellipse([S * 0.1, S * 0.115, S * 0.1 + S * 0.06, S * 0.115 + S * 0.06], fill=ORANGE + (255,))
+    d.text((S * 0.2, S * 0.145), e.o.get('title', 'Claude'), font=font('uim', S * 0.085), fill=(255, 255, 255, 235), anchor='lm')
+    d.text((S * 0.08, S * 0.2), e.o.get('text', '22'), font=font('uib', S * 0.44), fill=(255, 255, 255, 255))
+    for j, ln in enumerate(e.o.get('sub', 'effects|one clip').split('|')):
+        d.text((S * 0.1, S * (0.7 + 0.11 * j)), ln, font=font('uim', S * 0.085), fill=(255, 255, 255, 235))
+    place(c, a, mg + S / 2, y_top + S / 2, 0.6 + 0.4 * pop(c, 0.0), 0, al * clamp(c.lt / 0.1), behind=True)
+    bw, bh = W * 0.37, W * 0.15; bx = W - mg - bw / 2
+    b = glass(c, bw, bh, bh * 0.28, bx, y_top + bh / 2, amt=0.14, dark=gd); d = ImageDraw.Draw(b)
+    d.ellipse([bh * 0.17, bh * 0.2, bh * 0.17 + bh * 0.11, bh * 0.31], fill=(255, 69, 58, 255))
+    d.text((bh * 0.36, bh * 0.255), 'Rendering', font=font('uim', bh * 0.19), fill=(255, 255, 255, 240), anchor='lm')
+    p = ease_inout(c.lt / max(0.3, e.d * 0.85))
+    d.rounded_rectangle([bh * 0.17, bh * 0.5, bw - bh * 0.17, bh * 0.6], bh * 0.05, fill=(255, 255, 255, 70))
+    d.rounded_rectangle([bh * 0.17, bh * 0.5, bh * 0.17 + (bw - bh * 0.34) * max(0.04, p), bh * 0.6], bh * 0.05, fill=(255, 255, 255, 245))
+    d.text((bh * 0.17, bh * 0.78), f"{e.o.get('label', 'glass UI')}  ·  {int(p * 100)}%", font=font('uim', bh * 0.14), fill=(255, 255, 255, 210), anchor='lm')
+    place(c, b, bx, y_top + bh / 2, 0.6 + 0.4 * pop(c, 0.12), 0, al * clamp((c.lt - 0.12) / 0.1), behind=True)
+    cy2 = y_top + bh + mg * 0.45 + bh / 2
+    g = glass(c, bw, bh, bh * 0.28, bx, cy2, amt=0.14, dark=gd); d = ImageDraw.Draw(g)
+    av = face_chip(c, e, bh * 0.62); g.alpha_composite(av, (int(bw - bh * 0.19 - av.width), int((bh - av.height) / 2)))
+    d.text((bh * 0.2, bh * 0.36), e.o.get('name', 'Vibha'), font=font('uib', bh * 0.22), fill=(255, 255, 255, 255), anchor='lm')
+    d.text((bh * 0.2, bh * 0.66), e.o.get('handle', '@vibha.in.progress'), font=font('uim', bh * 0.14), fill=(255, 255, 255, 215), anchor='lm')
+    place(c, g, bx, cy2, 0.6 + 0.4 * pop(c, 0.24), 0, al * clamp((c.lt - 0.24) / 0.1), behind=True)
+    f1, f2 = font('uim', W * 0.045), font('uib', W * 0.045)
+    pre, hi = e.o.get('pill', 'Edited by |Claude').split('|') if '|' in e.o.get('pill', 'Edited by |Claude') else (e.o['pill'], '')
+    tw = f1.getlength(pre) + f2.getlength(hi); ph = W * 0.105; pw = tw + ph * 0.9; py = c.H * 0.865
+    q = glass(c, pw, ph, ph / 2, W / 2, py, amt=0.16, tint=(70, 70, 76)); d = ImageDraw.Draw(q)
+    d.text(((pw - tw) / 2, ph / 2), pre, font=f1, fill=(255, 255, 255, 255), anchor='lm')
+    d.text(((pw - tw) / 2 + f1.getlength(pre), ph / 2), hi, font=f2, fill=(255, 176, 146, 255), anchor='lm')
+    place(c, shadowed(q, 14, 6, 70), W / 2, py, 0.7 + 0.3 * pop(c, 0.4), 0, al * clamp((c.lt - 0.4) / 0.1), guard=True)
+
+
+@effect('red-collage', 'black and white you, a giant red word behind, kinetic type stacked beside you')
+def fx_red_collage(c, e):
+    k = ramp(c, e, 0.15, 0); m = c.m[..., None]
+    bw = grade(c.img, 'bw'); out = bw * m + bw * 0.62 * (1 - m)
+    c.img = c.img * (1 - k) + out * k
+    vignette(c, 0.45 * k)
+    red = rgb(e.o.get('color'), RED); al = fade(c, e)
+    w = cached(e, 'w', lambda: fit_text(e.o.get('text', 'EDIT').upper(), c.W * 0.98, 'uib', 700, fill=red, glow=(red, 34)))
+    s = 1.12 - 0.12 * ease_out(c.lt / 0.4)
+    place(c, w, c.W / 2, max(w.height * 0.42, c.fy - c.fw * 1.05), s, 0, clamp(c.lt / 0.12) * al, behind=True)
+    lines = e.o.get('lines', 'ONE CLIP.|22 EFFECTS.|ZERO APPS.').split('|')
+    size = cached(e, 'sz', lambda: lines_fit(lines, c.W * 0.8, 'uib', int(c.W * 0.14)))
+    y = max(c.H * 0.5, c.fy + c.fw * 1.55)
+    for j, ln in enumerate(lines):
+        im = cached(e, ('l', j), lambda: text_img(ln, size, 'uib', red if j == 1 else (255, 255, 255), shadow=8))
+        kk = clamp((c.lt - 0.18 - 0.13 * j) / 0.16)
+        if kk > 0: place(c, im, c.W * 0.05 + im.width / 2, y + im.height / 2, 1.4 - 0.4 * ease_out(kk), 0, kk * al, guard=True)
+        y += size * 1.0
+    tag = cached(e, 'tag', lambda: text_img(e.o.get('tag', 'REC  ·  RED COLLAGE'), c.W * 0.027, 'mono', red))
+    dot = Image.new('RGBA', (int(tag.height * 0.4),) * 2, (0, 0, 0, 0)); ImageDraw.Draw(dot).ellipse([0, 0, dot.width - 1, dot.width - 1], fill=red + (255,))
+    blink = 1.0 if int(c.lt * 2.5) % 2 == 0 else 0.35
+    place(c, dot, c.W * 0.07, c.H * 0.93, alpha=al * k * blink, guard=True)
+    place(c, tag, c.W * 0.07 + dot.width + tag.width / 2, c.H * 0.93, alpha=al * k, guard=True)
+
+
+@effect('split-headline', 'a clean headline card slides down and pushes you into the bottom of the frame')
+def fx_split_headline(c, e):
+    k = ease_out(c.lt / 0.38) * clamp((e.d - c.lt) / 0.25)
+    ch = c.H * float(e.o.get('height', 0.36))
+    shift(c, ch * float(e.o.get('push', 0.72)) * k)
+    top = ch * k; W = c.W; col = rgb(e.o.get('color'), GREEN)
+    lay = Image.new('RGBA', (W, int(ch)), (244, 242, 236, 255)); d = ImageDraw.Draw(lay)
+    lines = e.o.get('text', 'Claude|edits my|reels.').split('|'); hl = e.o.get('hl', 'edits')
+    S = cached(e, 'sz', lambda: lines_fit(lines, W * 0.84, 'uib', int(W * 0.135))); f = font('uib', S)
+    x0, y0 = W * 0.07, ch * 0.13
+    for j, ln in enumerate(lines):
+        kj = clamp((c.lt - 0.12 - 0.08 * j) / 0.18)
+        if kj <= 0: continue
+        y = y0 + j * S * 1.04 + (1 - ease_out(kj)) * S * 0.35; a = int(255 * kj)
+        x = x0
+        for wi, word in enumerate(ln.split(' ')):
+            tail = '.' if word.endswith('.') else ''; core = word[:-1] if tail else word
+            wl = f.getlength(core)
+            if core == hl:
+                hk = ease_out((c.lt - 0.42) / 0.22); pad = S * 0.12
+                if hk > 0: d.rounded_rectangle([x - pad, y + S * 0.02, x - pad + (wl + 2 * pad) * hk, y + S * 1.1], S * 0.16, fill=col + (a,))
+                d.text((x, y), core, font=f, fill=((255, 255, 255, a) if hk > 0.55 else (20, 20, 22, a)))
+            else: d.text((x, y), core, font=f, fill=(20, 20, 22, a))
+            x += wl
+            if tail: d.text((x, y), tail, font=f, fill=col + (a,)); x += f.getlength(tail)
+            x += f.getlength(' ') + (S * 0.12 if core == hl else 0)
+    d.rectangle([0, ch - max(5, W // 180), W, ch], fill=col + (255,))
+    comp(c, lay, 0, top - ch)
+    pt = text_img(e.o.get('pill', 'in seconds ↗'), W * 0.034, 'uib', (255, 255, 255))
+    pill = rrect(pt.width + W * 0.02, pt.height * 0.95, pt.height * 0.47, col + (255,)); pill.alpha_composite(pt, (int(W * 0.01), int(-pt.height * 0.025)))
+    place(c, shadowed(pill, 10, 4, 80), W * 0.93 - pill.width / 2, top + pill.height * 0.95, 0.6 + 0.4 * pop(c, 0.62), 0, clamp((c.lt - 0.62) / 0.1) * k, guard=True)
+
+
+_grad = {}
+@effect('pastel-word', 'a soft lavender backdrop, a giant word behind you and a profile card that gets followed')
+def fx_pastel_word(c, e):
+    W, H = c.W, c.H; k = ramp(c, e, 0.2, 0); m = c.m[..., None]; al = fade(c, e)
+    if (W, H) not in _grad:
+        yy, xx = np.mgrid[0:H, 0:W].astype(np.float32); t = np.clip((yy / H) * 0.8 + (xx / W) * 0.2, 0, 1)[..., None]
+        _grad[(W, H)] = np.float32([0.70, 0.67, 0.97]) * (1 - t) + np.float32([0.93, 0.90, 1.0]) * t
+    lum = (c.img @ np.float32([0.299, 0.587, 0.114]))[..., None]
+    bg = _grad[(W, H)] * (0.86 + 0.22 * lum)
+    you = np.clip(c.img * 0.93 + 0.05, 0, 1)
+    c.img = c.img * (1 - k) + (you * m + bg * (1 - m)) * k
+    word = cached(e, 'w', lambda: fit_text(e.o.get('text', 'REELS').upper(), W * 0.96, 'uib', 700, fill=(255, 255, 255)))
+    dk = ease_out(c.lt / 0.45)
+    place(c, shadowed(word, 24, 12, 60), W / 2, max(word.height * 0.45, c.fy - c.fw * 1.2) - (1 - dk) * H * 0.06, 1, 0, al * clamp(c.lt / 0.15), behind=True)
+    cw, chh = W * 0.86, W * 0.15; cy = H * 0.865 + (1 - ease_out((c.lt - 0.15) / 0.35)) * H * 0.2
+    card_ = rrect(cw, chh, chh * 0.3, (255, 255, 255, 248)); d = ImageDraw.Draw(card_)
+    av = face_chip(c, e, chh * 0.64); card_.alpha_composite(av, (int(chh * 0.18), int((chh - av.height) / 2)))
+    d.text((chh * 0.98, chh * 0.38), e.o.get('name', 'Vibha'), font=font('uib', chh * 0.22), fill=(20, 20, 22, 255), anchor='lm')
+    h1 = e.o.get('handle', '@vibha.in.progress  ·  '); f = font('uim', chh * 0.15)
+    d.text((chh * 0.98, chh * 0.66), h1, font=f, fill=(140, 140, 150, 255), anchor='lm')
+    d.text((chh * 0.98 + f.getlength(h1), chh * 0.66), e.o.get('role', 'creator'), font=f, fill=PURPLE + (255,), anchor='lm')
+    at = e.d * 0.6; on = c.lt >= at
+    bx = cw - chh * 0.22
+    d.text((bx, chh / 2), 'Following' if on else 'Follow', font=font('uib', chh * 0.2), fill=((140, 140, 150, 255) if on else PURPLE + (255,)), anchor='rm')
+    sq = 1 - 0.06 * math.sin(math.pi * clamp((c.lt - at) / 0.25)) if on else 1
+    place(c, shadowed(card_, 18, 8, 90), W / 2, cy, sq, 0, al * clamp((c.lt - 0.15) / 0.12), guard=True)
+    cu = cached(e, 'cur', lambda: cursor(W * 0.06))
+    ck = ease_inout((c.lt - 0.25) / max(0.2, at - 0.3))
+    tx, ty = W / 2 + cw / 2 - chh * 0.55, cy + chh * 0.12
+    sx, sy = W * 1.02, H * 1.02
+    place(c, cu, sx + (tx - sx) * ck + cu.width / 2, sy + (ty - sy) * ck + cu.height / 2, 0.85 if on and c.lt - at < 0.15 else 1, 0, al * clamp((c.lt - 0.25) / 0.1))
+
+
+_gp = {}
+@effect('check-pills', 'grid-paper room, your reels pinned behind you and blue pills that get clicked')
+def fx_check_pills(c, e):
+    W, H = c.W, c.H; k = ramp(c, e, 0.15, 0); m = c.m[..., None]; al = fade(c, e)
+    if (W, H) not in _gp:
+        g = np.ones((H, W, 3), np.float32) * np.float32([0.935, 0.945, 0.96]); st = max(20, W // 20); lw = max(1, W // 700)
+        for x in range(0, W, st): g[:, x:x + lw] = np.float32([0.86, 0.875, 0.9])
+        for y in range(0, H, st): g[y:y + lw] = np.float32([0.86, 0.875, 0.9])
+        _gp[(W, H)] = g
+    c.img = c.img * (1 - k) + (c.img * m + _gp[(W, H)] * (1 - m)) * k
+    def board(i, title):
+        bw = int(W * 0.44); im = rrect(bw, int(bw * 1.12), bw * 0.07, (255, 255, 255, 255)); d = ImageDraw.Draw(im)
+        d.ellipse([bw * 0.06, bw * 0.055, bw * 0.06 + bw * 0.09, bw * 0.145], fill=(255, 160, 140, 255))
+        d.text((bw * 0.19, bw * 0.1), title, font=font('uib', bw * 0.06), fill=(20, 20, 22, 255), anchor='lm')
+        gr = thumb_grid(e.cards, 3, 3, int(bw * 0.28), int(bw * 0.025), i0=i * 3)
+        im.alpha_composite(gr, ((bw - gr.width) // 2, int(bw * 0.2))); return shadowed(im, 16, 8, 70)
+    b1 = cached(e, 'b1', lambda: board(0, e.o.get('handle', '@vibha.in.progress')))
+    b2 = cached(e, 'b2', lambda: board(1, e.o.get('board', 'Reels  ·  22 effects')))
+    by = max(H * 0.17, c.fy - c.fw * 0.9)
+    place(c, b1, W * 0.25, by, 0.6 + 0.4 * pop(c, 0.0), 8, al * clamp(c.lt / 0.1), behind=True)
+    place(c, b2, W * 0.76, by - W * 0.02, 0.6 + 0.4 * pop(c, 0.1), -8, al * clamp((c.lt - 0.1) / 0.1), behind=True)
+    names = e.o.get('text', 'Hook|Captions|Cuts|B-roll').split('|')
+    spots = [(-0.95, 2.35), (0.55, 2.0), (-0.35, 2.95), (0.95, 2.75), (0.1, 3.45), (-1.1, 3.3)]
+    ph = W * 0.078; cu = cached(e, 'cur', lambda: cursor(W * 0.055))
+    pos = []
+    for i, n in enumerate(names):
+        sx, sy = spots[i % len(spots)]
+        x = clamp(c.fx + sx * c.fw * 1.6, W * 0.16, W * 0.84); y = clamp(c.fy + sy * c.fw, H * 0.3, H * 0.9)
+        t0 = 0.22 + 0.2 * i; pos.append((x, y, t0))
+        if c.lt < t0: continue
+        clicked = c.lt >= t0 + 0.12
+        t = text_img(n, ph * 0.42, 'uib', (255, 255, 255)); pw = int(t.width + ph * (0.75 if clicked else 0.35))
+        pill = rrect(pw, ph, ph / 2, BLUE + (255,)); pill.alpha_composite(t, (int(ph * 0.18), int((ph - t.height) / 2)))
+        if clicked: tick(ImageDraw.Draw(pill), pw - ph * 0.55, ph * 0.33, ph * 0.33)
+        sq = 1 - 0.1 * math.sin(math.pi * clamp((c.lt - t0 - 0.12) / 0.2))
+        place(c, shadowed(pill, 10, 5, 90), x, y, (0.5 + 0.5 * pop(c, t0, 0.25)) * sq, 0, al, guard=True)
+    if pos and c.lt > pos[0][2] - 0.1:
+        seg = [p for p in pos if p[2] <= c.lt + 0.1]; tx, ty, t0 = seg[-1]
+        px, py = (pos[len(seg) - 2][0], pos[len(seg) - 2][1]) if len(seg) > 1 else (W * 0.9, H * 0.95)
+        q = ease_inout((c.lt - (t0 - 0.12)) / 0.2)
+        place(c, cu, px + (tx - px) * q + ph * 0.3 + cu.width / 2, py + (ty - py) * q + ph * 0.1 + cu.height / 2, 1, 0, al)
+
+
+def red_timeline(c, e):
+    W, H = c.W, c.H; k = ramp(c, e, 0.2, 0); m = c.m[..., None]; al = fade(c, e)
+    lum = (c.img @ np.float32([0.299, 0.587, 0.114]))[..., None]
+    bg = np.clip(lum * np.float32([1.05, 0.3, 0.27]) * 0.85, 0, 1)
+    you = np.clip(c.img * np.float32([1.04, 0.86, 0.82]), 0, 1)
+    c.img = c.img * (1 - k) + (you * m + bg * (1 - m)) * k; vignette(c, 0.5 * k)
+    red = rgb(e.o.get('color'), (255, 52, 44))
+    sl = (1 - ease_out(c.lt / 0.35)) * W * 0.08; tb = clamp(c.lt / 0.15) * al
+    secs = 21 + int(c.lt * 3)
+    rec = text_img(f"{e.o.get('tc', 'REC')} 00:{secs:02d}", W * 0.032, 'mono', red)
+    dot = Image.new('RGBA', (int(rec.height * 0.36),) * 2, (0, 0, 0, 0)); ImageDraw.Draw(dot).ellipse([0, 0, dot.width - 1, dot.width - 1], fill=red + (255,))
+    comp(c, dot, W * 0.065 - sl, H * 0.075 + (rec.height - dot.height) / 2, tb * (1.0 if int(c.lt * 2.5) % 2 == 0 else 0.35), guard=True)
+    comp(c, rec, W * 0.065 + dot.width * 1.4 - sl, H * 0.075, tb, guard=True)
+    ti = cached(e, 'ti', lambda: text_img(e.o.get('text', 'AUTO-EDIT'), W * 0.13, 'uib', (255, 255, 255), shadow=10))
+    comp(c, ti, W * 0.055 - sl, H * 0.075 + rec.height * 0.85, tb, guard=True)
+    su = cached(e, 'su', lambda: text_img(e.o.get('sub', 'timeline by Claude'), W * 0.037, 'uim', red))
+    comp(c, su, W * 0.065 - sl, H * 0.075 + rec.height * 0.85 + ti.height * 0.88, tb, guard=True)
+    pw, phh = int(W * 0.9), int(H * 0.19); py = H * 0.755 + (1 - ease_out((c.lt - 0.1) / 0.35)) * H * 0.3
+    lay = rrect(pw, phh, W * 0.03, (14, 10, 10, 215), (255, 70, 60, 90), 2); d = ImageDraw.Draw(lay)
+    for j in range(4): d.text((pw * (0.05 + 0.3 * j), phh * 0.12), f'00:0{j}', font=font('mono', W * 0.022), fill=(170, 170, 175, 255), anchor='lm')
+    clips = cached(e, 'cl', lambda: [(r, a, b) for r, segs in enumerate([[(0.04, 0.24), (0.26, 0.5), (0.53, 0.76), (0.79, 0.96)],
+                                                                            [(0.04, 0.3), (0.33, 0.45), (0.48, 0.7)], [(0.04, 0.55), (0.6, 0.96)]]) for a, b in segs])
+    p = 0.04 + 0.92 * clamp(c.lt / (e.d * 0.95)); ph_x = pw * p
+    glow = Image.new('RGBA', (pw, phh), (0, 0, 0, 0)); gd = ImageDraw.Draw(glow)
+    for r, a, b in clips:
+        y0 = phh * (0.27 + 0.235 * r); x0, x1 = pw * a, pw * b; on = pw * a < ph_x
+        fill = red + (255,) if on else (120, 30, 28, 255)
+        d.rounded_rectangle([x0, y0, x1, y0 + phh * 0.17], phh * 0.04, fill=fill)
+        if on: gd.rounded_rectangle([x0, y0, x1, y0 + phh * 0.17], phh * 0.04, fill=red + (200,))
+    d.line([(ph_x, phh * 0.2), (ph_x, phh * 0.97)], fill=(255, 255, 255, 255), width=max(3, W // 300))
+    gd.line([(ph_x, phh * 0.2), (ph_x, phh * 0.97)], fill=(255, 255, 255, 255), width=max(8, W // 100))
+    lay = Image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(W // 90)), lay)
+    comp(c, lay, (W - pw) / 2, py, al, guard=True)
+
+
+@effect('headline-box', 'a punch-in with a clean two-line headline, the second line in a white box')
+def fx_headline_box(c, e):
+    face_cam(c, 1 + (float(e.o.get('zoom', 1.2)) - 1) * ease_out(c.lt / 0.22), 0.45)
+    W = c.W; al = fade(c, e); lines = e.o.get('text', 'How I got Claude|to edit my reels.').split('|')
+    S = cached(e, 'sz', lambda: lines_fit(lines, W * 0.84, 'uib', int(W * 0.085)))
+    y = max(c.H * 0.06, c.fy - c.fw * 1.3 - S * 1.3 * len(lines))
+    for j, ln in enumerate(lines):
+        kj = clamp((c.lt - 0.1 - 0.12 * j) / 0.18)
+        if kj <= 0: y += S * 1.3; continue
+        boxed = j == len(lines) - 1
+        t = cached(e, ('t', j), lambda: text_img(ln, S, 'uib', (16, 16, 18) if boxed else (255, 255, 255), shadow=0 if boxed else 9))
+        if boxed:
+            bx = rrect(t.width - S * 0.15, S * 1.22, S * 0.08, (255, 255, 255, 255))
+            wk = ease_out(kj); bx = bx.crop((0, 0, max(1, int(bx.width * wk)), bx.height))
+            comp(c, bx, W / 2 - (t.width - S * 0.15) / 2, y, al, guard=True)
+        place(c, t, W / 2, y + S * 0.6, 0.92 + 0.08 * ease_out(kj), 0, al * kj, guard=True)
+        y += S * 1.3
+
+
+@effect('profile-wall', 'your profile grid fills the wall behind you while a counter ticks up')
+def fx_profile_wall(c, e):
+    W, H = c.W, c.H; al = fade(c, e)
+    def wall():
+        pw = int(W * 0.92); ph = int(H * 0.36); im = rrect(pw, ph, W * 0.035, (16, 16, 18, 240)); d = ImageDraw.Draw(im)
+        tabs = ('Posts', 'Reels', 'Tagged'); f = font('uim', W * 0.032)
+        for j, tb in enumerate(tabs):
+            x = pw * (0.2 + 0.3 * j); d.text((x, ph * 0.06), tb, font=f, fill=((255, 255, 255, 255) if j == 1 else (130, 130, 136, 255)), anchor='mm')
+            if j == 1: d.rectangle([x - pw * 0.08, ph * 0.1, x + pw * 0.08, ph * 0.1 + 4], fill=(255, 255, 255, 255))
+        gr = thumb_grid(e.cards, 4, 2, int(pw * 0.225), int(pw * 0.012), look=False)
+        im.alpha_composite(gr, ((pw - gr.width) // 2, int(ph * 0.14))); return shadowed(im, 20, 10, 110)
+    wl = cached(e, 'wall', wall)
+    place(c, wl, W / 2, H * 0.04 + wl.height / 2, 0.94 + 0.06 * ease_out(c.lt / 0.35), 0, al * clamp(c.lt / 0.15), behind=True)
+    cw, chh = W * 0.76, W * 0.25; cy = min(H * 0.86, c.fy + c.fw * 2.6)
+    g = glass(c, cw, chh, chh * 0.18, W / 2, cy, amt=0.5, tint=(12, 12, 14)); d = ImageDraw.Draw(g)
+    target = int(e.o.get('count', 197000)); n = int(target * ease_out((c.lt - 0.2) / 0.8))
+    swap = clamp((c.lt - 1.15) / 0.2)
+    if swap < 1: d.text((cw / 2, chh * 0.33), f'{n:,}', font=font('uib', chh * 0.3), fill=(255, 255, 255, int(255 * (1 - swap))), anchor='mm')
+    if swap > 0: d.text((cw / 2, chh * 0.33), e.o.get('label', 'views'), font=font('uib', chh * 0.3), fill=(255, 255, 255, int(255 * swap)), anchor='mm')
+    av = face_chip(c, e, chh * 0.3); g.alpha_composite(av, (int(chh * 0.14), int(chh * 0.58)))
+    d.text((chh * 0.52, chh * 0.68), e.o.get('name', 'vibha.in.progress'), font=font('uib', chh * 0.09), fill=(255, 255, 255, 255), anchor='lm')
+    d.text((chh * 0.52, chh * 0.8), e.o.get('sub', 'top reel'), font=font('uim', chh * 0.075), fill=(170, 170, 176, 255), anchor='lm')
+    on = c.lt >= e.d * 0.7
+    d.rounded_rectangle([cw - chh * 0.95, chh * 0.62, cw - chh * 0.14, chh * 0.86], chh * 0.12, fill=((60, 60, 66, 255) if on else (255, 255, 255, 255)))
+    d.text((cw - chh * 0.545, chh * 0.74), 'Following' if on else 'Follow', font=font('uib', chh * 0.08), fill=((255, 255, 255, 255) if on else (16, 16, 18, 255)), anchor='mm')
+    place(c, g, W / 2, cy + (1 - ease_out((c.lt - 0.05) / 0.3)) * H * 0.1, 1, 0, al * clamp((c.lt - 0.05) / 0.12), guard=True)
+
+
+@effect('tier-list', 'a tier list drops in front of you and Claude flies into S tier')
+def fx_tier_list(c, e):
+    W, H = c.W, c.H; al = fade(c, e)
+    ttl = cached(e, 'ttl', lambda: fit_text(e.o.get('title', 'best way to edit a reel?'), W * 0.88, 'serif', int(W * 0.11), fill=YELLOW, shadow=8))
+    place(c, ttl, W / 2, max(ttl.height * 0.6, c.fy - c.fw * 1.65), 0.9 + 0.1 * ease_out(c.lt / 0.3), 0, al * clamp(c.lt / 0.15), behind=True)
+    tiers = [('S', (255, 127, 127)), ('A', (255, 191, 127)), ('B', (255, 223, 127)), ('C', (191, 255, 127)), ('D', (127, 191, 255)), ('F', (191, 127, 255))]
+    cw = int(W * 0.66); rh = int(W * 0.082); pad = int(W * 0.015); chh = pad * 2 + rh * 6 + pad * 5
+    fill = dict(zip('BCDF', e.o.get('others', 'templates|timelines|apps|doing it by hand').split('|')))
+    def board():
+        im = rrect(cw, chh, W * 0.025, (22, 22, 26, 240)); d = ImageDraw.Draw(im)
+        for i, (lab, col) in enumerate(tiers):
+            y = pad + i * (rh + pad)
+            d.rounded_rectangle([pad, y, pad + rh, y + rh], rh * 0.14, fill=col + (255,))
+            d.text((pad + rh / 2, y + rh / 2), lab, font=font('uib', rh * 0.5), fill=(20, 20, 22, 255), anchor='mm')
+            d.rounded_rectangle([pad * 2 + rh, y, cw - pad, y + rh], rh * 0.14, fill=(40, 40, 46, 255))
+            if lab in fill:
+                f = font('uim', rh * 0.3); tw = f.getlength(fill[lab]) + rh * 0.4
+                d.rounded_rectangle([pad * 3 + rh, y + rh * 0.15, pad * 3 + rh + tw, y + rh * 0.85], rh * 0.12, fill=(78, 78, 86, 255))
+                d.text((pad * 3 + rh + rh * 0.2, y + rh / 2), fill[lab], font=f, fill=(225, 225, 230, 255), anchor='lm')
+        return shadowed(im, 18, 10, 120)
+    bd = cached(e, 'bd', board)
+    top = min(H * 0.95 - bd.height, max(c.fy + c.fw * 1.4, H * 0.45))
+    k = ease_back(c.lt / 0.35); bx, by = W / 2, top + bd.height / 2 + (1 - k) * H * 0.15
+    place(c, bd, bx, by, 1, 0, al * clamp(c.lt / 0.12), guard=True)
+    tile = cached(e, 'tile', lambda: shadowed(rrect(int(rh * 2.6), int(rh * 0.8), rh * 0.16, ORANGE + (255,)), 8, 4, 100))
+    tx = cached(e, 'tx', lambda: text_img(e.o.get('item', 'Claude'), rh * 0.36, 'uib', (255, 255, 255)))
+    tl = tile.copy(); tl.alpha_composite(tx, ((tl.width - tx.width) // 2, (tl.height - tx.height) // 2 - 3))
+    sx, sy = W * 0.86, c.fy + c.fw * 0.4
+    ex = bx - bd.width / 2 + 18 + pad * 3 + rh + tile.width / 2 - 10; ey = by - bd.height / 2 + 18 + pad + rh / 2
+    q = ease_back((c.lt - 0.45) / 0.4)
+    if c.lt > 0.4: place(c, tl, sx + (ex - sx) * q, sy + (ey - sy) * q, 1.25 - 0.25 * clamp(q), 18 * (1 - clamp(q)), al, guard=True)
+
+
+@effect('broll-split', 'split screen: b-roll on top with a price-tag sticker, you on the bottom')
+def fx_broll_split(c, e):
+    W, H = c.W, c.H; k = ease_out(c.lt / 0.3) * clamp((e.d - c.lt) / 0.2); al = fade(c, e)
+    shift(c, (H * 0.72 - c.fy) * k)
+    sh = int(H * 0.5 * k)
+    if sh > 2:
+        src = e.cards[int(e.o.get('pick', 0)) % len(e.cards)].convert('RGB')
+        z = 1.0 + 0.06 * clamp(c.lt / e.d); tw, th = int(W * z), int(H * 0.5 * z)
+        s = max(tw / src.width, th / src.height); im = src.resize((int(src.width * s) + 1, int(src.height * s) + 1), Image.BILINEAR)
+        l, t = (im.width - W) // 2, int((im.height - H * 0.5) * 0.35); im = im.crop((l, t, l + W, t + int(H * 0.5)))
+        top = np.asarray(im, np.float32) / 255
+        c.img[:sh] = top[int(H * 0.5) - sh:]; c.m[:sh] = 0
+        c.img[max(0, sh - 3):sh + 3] = 1.0
+    tag = cached(e, 'tag', lambda: text_img(e.o.get('text', '4 hrs  →  4 min'), W * 0.06, 'uib', (16, 16, 18)))
+    tw, th = int(tag.width + W * 0.11), int(tag.height * 1.25)
+    st = Image.new('RGBA', (tw, th), (0, 0, 0, 0)); d = ImageDraw.Draw(st); n = th * 0.5
+    d.polygon([(0, th / 2), (n, 0), (tw, 0), (tw, th), (n, th)], fill=(255, 255, 255, 255))
+    d.ellipse([n * 0.55, th / 2 - n * 0.16, n * 0.87, th / 2 + n * 0.16], fill=(200, 200, 205, 255))
+    st.alpha_composite(tag, (int(n * 1.05), (th - tag.height) // 2))
+    place(c, shadowed(st, 12, 6, 110), W * 0.66, H * 0.39 * k + H * 0.0, 0.5 + 0.5 * pop(c, 0.3), 8, al * clamp((c.lt - 0.3) / 0.08))
+
+
+@effect('phone-fan', 'your reels fan out like a hand of phones in front of you, under a two-line headline')
+def fx_phone_fan(c, e):
+    W, H = c.W, c.H; al = fade(c, e)
+    lines = e.o.get('text', '22 effects.|zero editing apps.').split('|')
+    S = cached(e, 'sz', lambda: lines_fit(lines, W * 0.84, 'uib', int(W * 0.08)))
+    y = max(H * 0.06, c.fy - c.fw * 1.3 - S * 1.3 * len(lines))
+    for j, ln in enumerate(lines):
+        kj = clamp((c.lt - 0.05 - 0.1 * j) / 0.18); last = j == len(lines) - 1
+        t = cached(e, ('t', j), lambda: text_img(ln, S, 'uib', (16, 16, 18) if last else (255, 255, 255), shadow=0 if last else 9))
+        if last: comp(c, rrect(t.width - S * 0.15, S * 1.22, S * 0.08, (255, 255, 255, 255)), W / 2 - (t.width - S * 0.15) / 2, y, al * kj, guard=True)
+        place(c, t, W / 2, y + S * 0.6, 1, 0, al * kj, guard=True); y += S * 1.3
+    pw = int(W * 0.23); ph = int(pw * 2.0)
+    def phone(i):
+        im = rrect(pw, ph, pw * 0.16, (14, 14, 16, 255))
+        scr = card(vary(e.cards[i % len(e.cards)], i) if e.o.get('images') is None else e.cards[i % len(e.cards)], pw - 10)
+        inner = scr.crop(((scr.width - (pw - 10)) // 2, (scr.height - (ph - 10)) // 2 - 6, (scr.width + pw - 10) // 2, (scr.height + ph - 10) // 2 - 6))
+        im.alpha_composite(inner, (5, 5))
+        ImageDraw.Draw(im).rounded_rectangle([pw * 0.36, ph * 0.025, pw * 0.64, ph * 0.045], pw * 0.03, fill=(0, 0, 0, 255))
+        return shadowed(im, 14, 8, 120)
+    ph_ = cached(e, 'ph', lambda: [phone(i) for i in range(4)])
+    cx = W / 2 * 0.5 + c.fx * 0.5; cy = max(c.fy + c.fw * 1.1 + ph / 2, H * 0.62)
+    cy = min(cy, H - ph * 0.42)
+    for i, o in enumerate((-1.5, -0.5, 0.5, 1.5)):
+        q = ease_back((c.lt - 0.2 - 0.06 * i) / 0.4)
+        place(c, ph_[i], cx + o * W * 0.19 * q, cy + o * o * W * 0.025 * q, 0.9, -o * 11 * q, al * clamp((c.lt - 0.2) / 0.1), guard=True)
+
+
+@effect('dot-reveal', 'your shot builds itself out of glowing dots, then snaps into the full picture')
+def fx_dot_reveal(c, e):
+    p = clamp(c.lt / e.d); W, H = c.W, c.H
+    cell = max(6, int(W * float(e.o.get('cell', 0.017)))); gh, gw = H // cell + 1, W // cell + 1
+    def geo():
+        yy, xx = np.mgrid[0:gh * cell, 0:gw * cell].astype(np.float32)
+        dist = np.sqrt((xx % cell - cell / 2 + 0.5) ** 2 + (yy % cell - cell / 2 + 0.5) ** 2)[:H, :W]
+        return dist, np.random.default_rng(5).random((gh, gw)).astype(np.float32)
+    dist, thr = cached(e, 'geo', geo)
+    pad = np.pad(c.img, ((0, gh * cell - H), (0, gw * cell - W), (0, 0)), mode='edge')
+    small = cv2.resize(pad, (gw, gh), interpolation=cv2.INTER_AREA)
+    lum = small @ np.float32([0.299, 0.587, 0.114])
+    on = np.clip((p * 1.7 - thr * 0.95) / 0.3, 0, 1)
+    sparkle = 0.75 + 0.25 * np.sin(thr * 40 + c.lt * 18)
+    r = (0.18 + 0.32 * np.sqrt(np.clip(lum, 0, 1))) * cell * on
+    col = rgb(e.o.get('color'), (255, 128, 80))
+    q2 = clamp((p - 0.3) / 0.35)
+    dc = np.float32(col) / 255 * (0.55 + 0.6 * lum[..., None]) * sparkle[..., None] * (1 - q2) + np.clip(small * 1.15, 0, 1) * q2
+    R = np.repeat(np.repeat(r, cell, 0), cell, 1)[:H, :W]
+    DC = np.repeat(np.repeat(dc, cell, 0), cell, 1)[:H, :W]
+    dm = np.clip(R - dist + 0.5, 0, 1)[..., None]
+    bgc = np.float32(rgb(e.o.get('bg'), (20, 20, 22))) / 255
+    dots = bgc * (1 - dm) + DC * dm
+    q = ease_inout((p - 0.6) / 0.4)
+    c.img = dots * (1 - q) + c.img * q
+
+
+def tracked(s, size, kind, fill, spacing, colors=None):
+    """Letter-spaced text. colors: optional per-character fill list."""
+    f = font(kind, size); w = sum(f.getlength(ch) for ch in s) + spacing * max(0, len(s) - 1)
+    bb = f.getbbox('Ag'); im = Image.new('RGBA', (int(w) + 8, int(bb[3] - bb[1] + size * 0.4)), (0, 0, 0, 0)); d = ImageDraw.Draw(im); x = 4
+    for i, ch in enumerate(s):
+        d.text((x, -bb[1] + size * 0.2), ch, font=f, fill=(colors[i] if colors else fill) + (255,)); x += f.getlength(ch) + spacing
+    return im
+
+
+def rich(parts, size, kind, base, accent, accent_kind=None, shadow=0):
+    """One line of text where *starred* words take the accent colour (and optionally another font)."""
+    segs = []
+    for j, p in enumerate(parts.split('*')):
+        if p: segs.append(text_img(p, size, accent_kind if (j % 2 and accent_kind) else kind, accent if j % 2 else base, shadow=shadow))
+    pad = int(size * 0.2 + shadow * 2.5) + 4
+    w = sum(s.width - 2 * pad for s in segs) + 2 * pad; h = max(s.height for s in segs)
+    im = Image.new('RGBA', (w, h), (0, 0, 0, 0)); x = 0
+    for s in segs: im.alpha_composite(s, (x, (h - s.height) // 2)); x += s.width - 2 * pad
+    return im
+
+
+@effect('headline-wall', 'a wall of your own reel headlines piles up behind your head, then your total views pop in front')
+def fx_headline_wall(c, e):
+    W, H = c.W, c.H; u = W / 1080; al = fade(c, e)
+    items = [x.split('::') for x in e.o.get('text', 'Protect your personal data with ChatGPT Agent Mode::197K views|Easiest no-code scroll animation websites::124K views|'
+                                         'How to make your resume un-rejectable using Claude::83K views|Same prompt: Claude Fable 5 vs ChatGPT 5.6 Sol::50K views|'
+                                         'Jev, the new AI model faster and cheaper than Claude::40K views|Scrape LinkedIn automatically::38K views|'
+                                         'Protect your personal data on the internet::140K views').split('|')]
+    looks = [((255, 255, 255), (20, 20, 22)), ((22, 20, 24), (255, 255, 255)), ((246, 238, 226), (30, 24, 20)), ((255, 214, 10), (20, 20, 22))]
+    def hcard(i):
+        title, meta = (items[i % len(items)] + [''])[:2]; bg, fg = looks[i % len(looks)]
+        cw = int(W * 0.5); f = font('uib', cw * 0.085); words = title.split(' '); lines, cur = [], ''
+        for w_ in words:
+            tst = (cur + ' ' + w_).strip()
+            if f.getlength(tst) > cw * 0.84 and cur: lines.append(cur); cur = w_
+            else: cur = tst
+        lines.append(cur); lh = cw * 0.1
+        chh = int(cw * 0.1 + lh * len(lines) + cw * 0.16)
+        im = rrect(cw, chh, cw * 0.04, bg + (255,)); d = ImageDraw.Draw(im)
+        for j, ln in enumerate(lines): d.text((cw * 0.08, cw * 0.07 + j * lh), ln, font=f, fill=fg + (255,))
+        my = chh - cw * 0.085; s = cw * 0.04
+        d.polygon([(cw * 0.08, my - s / 2), (cw * 0.08, my + s / 2), (cw * 0.08 + s * 0.9, my)], fill=(255, 48, 64, 255))
+        d.text((cw * 0.08 + s * 1.5, my), ('@vibha.in.progress  ·  ' + meta) if meta else '@vibha.in.progress', font=font('uim', cw * 0.045), fill=fg + (170,), anchor='lm')
+        return shadowed(im, 14, 8, 110)
+    N = int(e.o.get('count', 13))
+    cards = cached(e, 'cards', lambda: [hcard(i) for i in range(N)])
+    pos = cached(e, 'pos', lambda: [(random.Random(i * 7 + 1).uniform(0.2, 0.8), random.Random(i * 7 + 2).uniform(0.07, 0.42), random.Random(i * 7 + 3).uniform(-9, 9)) for i in range(N)])
+    gap = float(e.o.get('gap', 0.09))
+    for i in range(N):
+        t0 = i * gap
+        if c.lt < t0: break
+        x, y, r = pos[i]; kk = ease_back((c.lt - t0) / 0.22)
+        place(c, cards[i], x * W, y * H, 0.55 + 0.45 * kk, r, al * clamp((c.lt - t0) / 0.06), behind=True)
+    t1 = N * gap + 0.1
+    if c.lt > t1:
+        tot = e.o.get('total', '672K'); lab = e.o.get('label', 'views from 7 reels')
+        a = text_img(tot, 96 * u, 'anton', (255, 255, 255)); b = text_img(lab, 34 * u, 'uib', (255, 255, 255))
+        pw = int(a.width + b.width + 30 * u); ph = int(max(a.height, b.height) + 10 * u)
+        pill = rrect(pw, ph, ph * 0.28, (217, 119, 87, 245)); pill.alpha_composite(a, (int(8 * u), (ph - a.height) // 2)); pill.alpha_composite(b, (int(a.width + 8 * u), (ph - b.height) // 2))
+        place(c, shadowed(pill, 18, 8, 110), W / 2, max(c.fy + c.fw * 1.8, H * 0.6), 0.6 + 0.4 * pop(c, t1, 0.3), -3, al * clamp((c.lt - t1) / 0.08), guard=True)
+
+
+@effect('checklist', 'a Claude task list builds under your chin: each step spins, then ticks green')
+def fx_checklist(c, e):
+    W, H = c.W, c.H; u = W / 1080; al = fade(c, e)
+    rows = [x.split('::') for x in e.o.get('text', 'Found your face::every frame|Cut you out of the room::AI mask|Put the text behind you::depth|'
+                                        'Graded the colour::warm|Rendered in 4K::2160p').split('|')]
+    n = len(rows); cw = W * 0.9; rh = 104 * u; hh = 120 * u; chh = hh + rh * n + 26 * u
+    y0 = min(max(c.fy + c.fw * 1.35, H * 0.42), H * 0.93 - chh); cy = y0 + chh / 2 + (1 - ease_out(c.lt / 0.35)) * H * 0.12
+    span = max(0.4, e.d - 0.55); done_at = [0.3 + span * (i + 1) / n for i in range(n)]
+    g = glass(c, cw, chh, 40 * u, W / 2, cy, amt=0.78, tint=(14, 13, 16), blur=int(30 * u)); d = ImageDraw.Draw(g)
+    sx, sy = 44 * u, hh / 2
+    for a in range(4):
+        ang = a * math.pi / 2 + math.pi / 4
+        d.line([(sx, sy), (sx + 18 * u * math.cos(ang), sy + 18 * u * math.sin(ang))], fill=(217, 119, 87, 255), width=int(7 * u))
+        d.line([(sx, sy), (sx + 18 * u * math.cos(ang + math.pi / 4), sy + 18 * u * math.sin(ang + math.pi / 4))], fill=(217, 119, 87, 255), width=int(5 * u))
+    d.text((80 * u, hh / 2), e.o.get('title', 'Claude is editing your clip'), font=font('uib', 42 * u), fill=(255, 255, 255, 255), anchor='lm')
+    nd = sum(c.lt >= t for t in done_at)
+    d.text((cw - 36 * u, hh / 2), f'{nd} of {n}', font=font('uim', 28 * u), fill=(170, 170, 176, 255), anchor='rm')
+    d.line([(30 * u, hh), (cw - 30 * u, hh)], fill=(255, 255, 255, 30), width=max(1, int(2 * u)))
+    for i, (txt, meta) in enumerate([(r + [''])[:2] for r in rows]):
+        y = hh + 13 * u + rh * i + rh / 2; x = 56 * u; r_ = 24 * u
+        start = done_at[i - 1] if i else 0.3
+        if c.lt >= done_at[i]:
+            q = ease_back((c.lt - done_at[i]) / 0.25); rr = r_ * (0.6 + 0.4 * q)
+            d.ellipse([x - rr, y - rr, x + rr, y + rr], fill=(52, 199, 89, 255)); tick(d, x - rr * 0.5, y - rr * 0.45, rr, w=int(5 * u))
+            fc, mc = (255, 255, 255, 255), (52, 199, 89, 255)
+        elif c.lt >= start:
+            a0 = (c.lt * 540) % 360; d.ellipse([x - r_, y - r_, x + r_, y + r_], outline=(255, 255, 255, 50), width=int(5 * u))
+            d.arc([x - r_, y - r_, x + r_, y + r_], a0, a0 + 100, fill=(217, 119, 87, 255), width=int(5 * u)); fc, mc = (255, 255, 255, 255), (170, 170, 176, 255)
+        else:
+            d.ellipse([x - r_, y - r_, x + r_, y + r_], outline=(255, 255, 255, 60), width=int(4 * u)); fc, mc = (255, 255, 255, 110), (170, 170, 176, 90)
+        d.text((x + 48 * u, y), txt, font=font('uib', 40 * u), fill=fc, anchor='lm')
+        d.text((cw - 36 * u, y), meta, font=font('mono', 28 * u), fill=mc, anchor='rm')
+    place(c, shadowed(g, 24, 12, 120), W / 2, cy, 1, 0, al * clamp(c.lt / 0.12), guard=True)
+
+
+def np_thumb(c, w, h):
+    """The current frame as a small PIL thumbnail (cropped to w:h around your face)."""
+    ar = w / h; ch = c.H * 0.62; cw = ch * ar
+    x0 = int(clamp(c.fx - cw / 2, 0, c.W - cw)); y0 = int(clamp(c.fy - ch * 0.4, 0, c.H - ch))
+    crop = c.img[y0:int(y0 + ch), x0:int(x0 + cw)]
+    return Image.fromarray((np.clip(crop, 0, 1) * 255).astype(np.uint8)).resize((int(w), int(h)), Image.LANCZOS)
+
+
+def glow_panel(w, h, r, top, bot, line, glow, gblur):
+    """A rounded panel with a vertical gradient fill, a thin border and an outer glow."""
+    w, h = int(w), int(h); pad = int(gblur * 2.2)
+    out = Image.new('RGBA', (w + 2 * pad, h + 2 * pad), (0, 0, 0, 0))
+    g = Image.new('RGBA', out.size, (0, 0, 0, 0)); ImageDraw.Draw(g).rounded_rectangle([pad, pad, pad + w, pad + h], r, fill=glow)
+    out.alpha_composite(g.filter(ImageFilter.GaussianBlur(gblur)))
+    t = np.linspace(0, 1, h, dtype=np.float32)[:, None, None]
+    fill = (np.float32(top) * (1 - t) + np.float32(bot) * t) * np.ones((1, w, 1), np.float32)
+    body = Image.fromarray(np.concatenate([fill, np.full((h, w, 1), 255, np.float32)], 2).astype(np.uint8), 'RGBA')
+    m = Image.new('L', (w, h), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, w - 1, h - 1], r, fill=255); body.putalpha(m)
+    ImageDraw.Draw(body).rounded_rectangle([1, 1, w - 2, h - 2], r, outline=line, width=max(2, int(w / 400)))
+    out.alpha_composite(body, (pad, pad))
+    return out, pad
+
+
+def np_thumb_pil(im, w, h):
+    src = im.convert('RGB'); s = max(w / src.width, h / src.height)
+    t = src.resize((max(w, int(src.width * s) + 1), max(h, int(src.height * s) + 1)), Image.LANCZOS)
+    l, tp = (t.width - w) // 2, int((t.height - h) * 0.3); t = t.crop((l, tp, l + w, tp + h)).convert('RGBA')
+    m = Image.new('L', t.size, 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, w - 1, h - 1], max(3, w // 10), fill=255); t.putalpha(m)
+    return t
+
+
+def glass_widgets_v2(c, e):
+    """More widgets, artifact-style: stat tile, render bar, profile, a mini views artifact, now-playing, calendar, a 4K ring and the Edited by Claude pill."""
+    W, H = c.W, c.H; u = W / 1080
+    k0 = ramp(c, e, 0.3, 0)
+    if e.o.get('grade', 'warm') != 'none': c.img = c.img * (1 - 0.6 * k0) + grade(c.img, e.o.get('grade', 'warm')) * 0.6 * k0
+    al = fade(c, e); gd = float(e.o.get('dark', 0.22)); white = (255, 255, 255)
+    def bob(i): return 6 * u * math.sin(2 * math.pi * (c.lt * 0.55 + i * 0.17))
+    def show(im, x, y, i, front=False):
+        t0 = 0.07 * i
+        if c.lt < t0: return
+        place(c, im, x, y + bob(i), 0.6 + 0.4 * pop(c, t0, 0.32), 0, al * clamp((c.lt - t0) / 0.08), behind=not front, guard=front)
+    G = lambda w, h, cx, cy, r=None: glass(c, w, h, r or min(w, h) * 0.2, cx, cy, amt=0.14, dark=gd)
+    # 1 · stat tile
+    S = 300 * u; ax, ay = 50 * u + S / 2, 118 * u + S / 2
+    a = G(S, S, ax, ay); d = ImageDraw.Draw(a)
+    d.ellipse([S * 0.1, S * 0.115, S * 0.16, S * 0.175], fill=ORANGE + (255,))
+    d.text((S * 0.2, S * 0.145), e.o.get('title', 'Claude'), font=font('uim', S * 0.085), fill=white + (235,), anchor='lm')
+    d.text((S * 0.08, S * 0.2), e.o.get('text', '38'), font=font('uib', S * 0.44), fill=white + (255,))
+    for j, ln in enumerate(e.o.get('sub', 'effects|one clip').split('|')): d.text((S * 0.1, S * (0.7 + 0.11 * j)), ln, font=font('uim', S * 0.085), fill=white + (235,))
+    show(a, ax, ay, 0)
+    # 2 · render bar
+    bw, bh = 400 * u, 150 * u; bx, by = W - 50 * u - bw / 2, 118 * u + bh / 2
+    b = G(bw, bh, bx, by, bh * 0.28); d = ImageDraw.Draw(b); p = ease_inout(c.lt / max(0.3, e.d * 0.85))
+    d.ellipse([bh * 0.17, bh * 0.2, bh * 0.28, bh * 0.31], fill=(255, 69, 58, 255))
+    d.text((bh * 0.36, bh * 0.255), 'Rendering', font=font('uim', bh * 0.19), fill=white + (240,), anchor='lm')
+    d.rounded_rectangle([bh * 0.17, bh * 0.5, bw - bh * 0.17, bh * 0.6], bh * 0.05, fill=white + (70,))
+    d.rounded_rectangle([bh * 0.17, bh * 0.5, bh * 0.17 + (bw - bh * 0.34) * max(0.04, p), bh * 0.6], bh * 0.05, fill=white + (245,))
+    d.text((bh * 0.17, bh * 0.78), f"4K render  ·  {int(p * 100)}%", font=font('uim', bh * 0.14), fill=white + (210,), anchor='lm')
+    show(b, bx, by, 1)
+    # 3 · profile
+    cy3 = by + bh / 2 + 22 * u + bh / 2
+    g = G(bw, bh, bx, cy3, bh * 0.28); d = ImageDraw.Draw(g)
+    av = face_chip(c, e, bh * 0.62); g.alpha_composite(av, (int(bw - bh * 0.19 - av.width), int((bh - av.height) / 2)))
+    d.text((bh * 0.2, bh * 0.36), e.o.get('name', 'Vibha'), font=font('uib', bh * 0.22), fill=white + (255,), anchor='lm')
+    d.text((bh * 0.2, bh * 0.66), e.o.get('handle', '@vibha.in.progress'), font=font('uim', bh * 0.14), fill=white + (215,), anchor='lm')
+    show(g, bx, cy3, 2)
+    # 4 · views artifact (a mini page inside the glass)
+    aw, ah = 330 * u, 330 * u; dx, dy = 50 * u + aw / 2, ay + S / 2 + 26 * u + ah / 2
+    art = G(aw, ah, dx, dy, 44 * u); d = ImageDraw.Draw(art)
+    d.text((24 * u, 30 * u), 'artifact · views.html', font=font('mono', 15 * u), fill=white + (220,), anchor='lm')
+    inn = rrect(aw - 36 * u, ah - 74 * u, 20 * u, (250, 248, 244, 255)); di = ImageDraw.Draw(inn); iw, ih = inn.size
+    for j in range(3): di.ellipse([14 * u + j * 16 * u, 14 * u, 24 * u + j * 16 * u, 24 * u], fill=((255, 95, 87), (255, 189, 46), (40, 200, 64))[j] + (255,))
+    di.text((16 * u, 40 * u), 'Top reels', font=font('uib', 26 * u), fill=(24, 22, 26, 255))
+    di.text((16 * u, 72 * u), '197K', font=font('anton', 44 * u), fill=(200, 85, 61, 255))
+    vals = [197, 140, 124, 83, 50, 40, 38]; gx0, gx1, gy1 = 16 * u, iw - 16 * u, ih - 18 * u; bwid = (gx1 - gx0) / 7 * 0.66
+    for j, v in enumerate(vals):
+        q = ease_out((c.lt - 0.35 - 0.05 * j) / 0.4); hh = (ih * 0.42) * v / 197 * q; x0 = gx0 + (gx1 - gx0) * j / 7
+        if hh > 1: di.rounded_rectangle([x0, gy1 - hh, x0 + bwid, gy1], 5 * u, fill=((242, 196, 109) if j == 0 else (200, 85, 61)) + (255,))
+    art.alpha_composite(inn, (int(18 * u), int(56 * u)))
+    show(art, dx, dy, 3)
+    # 5 · now playing
+    mw, mh = 360 * u, 220 * u; mx, my = W - 50 * u - mw / 2, cy3 + bh / 2 + 22 * u + mh / 2
+    mu = G(mw, mh, mx, my, 40 * u); d = ImageDraw.Draw(mu); A = 96 * u
+    t = np.linspace(0, 1, int(A), dtype=np.float32)[:, None, None]
+    art2 = Image.fromarray(np.concatenate([(np.float32([255, 150, 110]) * (1 - t) + np.float32([217, 90, 70]) * t) * np.ones((1, int(A), 1), np.float32), np.full((int(A), int(A), 1), 255, np.float32)], 2).astype(np.uint8), 'RGBA')
+    am = Image.new('L', art2.size, 0); ImageDraw.Draw(am).rounded_rectangle([0, 0, art2.width - 1, art2.height - 1], 16 * u, fill=255); art2.putalpha(am)
+    ad = ImageDraw.Draw(art2)
+    for k_ in range(6):
+        ang = k_ * math.pi / 3; ad.line([(A / 2 - 26 * u * math.cos(ang), A / 2 - 26 * u * math.sin(ang)), (A / 2 + 26 * u * math.cos(ang), A / 2 + 26 * u * math.sin(ang))], fill=(255, 255, 255, 255), width=int(7 * u))
+    mu.alpha_composite(art2, (int(22 * u), int(22 * u)))
+    d.text((134 * u, 44 * u), 'NOW EDITING', font=font('mono', 15 * u), fill=white + (200,), anchor='lm')
+    d.text((134 * u, 78 * u), e.o.get('song', 'soft UI pops'), font=font('uib', 28 * u), fill=white + (255,), anchor='lm')
+    d.text((134 * u, 108 * u), 'sfx · 25.7s', font=font('uim', 20 * u), fill=white + (200,), anchor='lm')
+    pp = clamp(c.lt / max(0.5, e.d)); d.rounded_rectangle([22 * u, 140 * u, mw - 22 * u, 146 * u], 3 * u, fill=white + (70,))
+    d.rounded_rectangle([22 * u, 140 * u, 22 * u + (mw - 44 * u) * pp, 146 * u], 3 * u, fill=white + (240,))
+    cxm, cym = mw / 2, 184 * u
+    d.polygon([(cxm - 12 * u, cym - 16 * u), (cxm - 12 * u, cym + 16 * u), (cxm + 16 * u, cym)], fill=white + (255,))
+    for sgn in (-1, 1):
+        x = cxm + sgn * 80 * u
+        d.polygon([(x - sgn * 10 * u, cym - 11 * u), (x - sgn * 10 * u, cym + 11 * u), (x + sgn * 6 * u, cym)], fill=white + (220,))
+        d.polygon([(x + sgn * 4 * u, cym - 11 * u), (x + sgn * 4 * u, cym + 11 * u), (x + sgn * 20 * u, cym)], fill=white + (220,))
+    show(mu, mx, my, 4)
+    # 6 · calendar
+    kw, kh = 330 * u, 190 * u; kx, ky = 50 * u + kw / 2, dy + ah / 2 + 26 * u + kh / 2
+    ca = G(kw, kh, kx, ky, 40 * u); d = ImageDraw.Draw(ca)
+    d.text((26 * u, 36 * u), e.o.get('day', 'WED'), font=font('uib', 22 * u), fill=(255, 92, 82, 255), anchor='lm')
+    d.text((26 * u, 82 * u), e.o.get('date', '21'), font=font('uib', 56 * u), fill=white + (255,), anchor='lm')
+    d.rounded_rectangle([22 * u, 120 * u, kw - 22 * u, 168 * u], 12 * u, fill=(255, 92, 82, 210))
+    d.text((36 * u, 144 * u), e.o.get('event', 'Post 2 reels · tonight'), font=font('uib', 22 * u), fill=white + (255,), anchor='lm')
+    show(ca, kx, ky, 5)
+    # 7 · 4K ring
+    R = 250 * u; rx, ry = W - 50 * u - R / 2, my + mh / 2 + 26 * u + R / 2
+    rg = G(R, R, rx, ry, 56 * u); d = ImageDraw.Draw(rg); rp = ease_inout((c.lt - 0.4) / 1.0); rr = R * 0.34
+    d.ellipse([R / 2 - rr, R / 2 - rr - 8 * u, R / 2 + rr, R / 2 + rr - 8 * u], outline=white + (60,), width=int(16 * u))
+    if rp > 0: d.arc([R / 2 - rr, R / 2 - rr - 8 * u, R / 2 + rr, R / 2 + rr - 8 * u], -90, -90 + 360 * rp, fill=(52, 199, 89, 255), width=int(16 * u))
+    d.text((R / 2, R / 2 - 8 * u), '4K', font=font('uib', 52 * u), fill=white + (255,), anchor='mm')
+    d.text((R / 2, R - 26 * u), 'render', font=font('uim', 20 * u), fill=white + (210,), anchor='mm')
+    show(rg, rx, ry, 6)
+    # 8 · Edited by Claude pill (in front)
+    f1, f2 = font('uim', W * 0.045), font('uib', W * 0.045); pre, hi = 'Edited by ', 'Claude'
+    tw = f1.getlength(pre) + f2.getlength(hi); ph = W * 0.105; pw = tw + ph * 0.9; py = H * 0.875
+    q = glass(c, pw, ph, ph / 2, W / 2, py, amt=0.16, tint=(70, 70, 76)); d = ImageDraw.Draw(q)
+    d.text(((pw - tw) / 2, ph / 2), pre, font=f1, fill=white + (255,), anchor='lm')
+    d.text(((pw - tw) / 2 + f1.getlength(pre), ph / 2), hi, font=f2, fill=(255, 176, 146, 255), anchor='lm')
+    show(shadowed(q, 14, 6, 70), W / 2, py, 7, front=True)
+
+
+@effect('glass-widgets', 'frosted glass phone widgets and mini artifacts float around your head, with an Edited by Claude pill')
+def fx_glass_widgets(c, e):
+    (glass_widgets_v1 if e.o.get('look') == 'simple' else glass_widgets_v2)(c, e)
+
+
+@effect('timeline', 'a dark red cinematic grade with an editing timeline, a REC timecode and a glowing playhead')
+def fx_timeline(c, e):
+    studio = globals().get('studio_timeline')
+    (studio if studio and e.o.get('look') != 'red' else red_timeline)(c, e)
+
+
+_emoji = {}
+def emoji(ch, size):
+    """A colour emoji as an RGBA image (Apple Color Emoji on a Mac). Returns None where the font is missing."""
+    k = (ch, int(size))
+    if k not in _emoji:
+        try:
+            f = ImageFont.truetype('/System/Library/Fonts/Apple Color Emoji.ttc', 160)
+            im = Image.new('RGBA', (200, 200), (0, 0, 0, 0)); ImageDraw.Draw(im).text((20, 10), ch, font=f, embedded_color=True)
+            im = im.crop(im.getbbox()); _emoji[k] = im.resize((int(size), int(size * im.height / im.width)), Image.LANCZOS)
+        except Exception:
+            _emoji[k] = None
+    return _emoji[k]
+
+
+def comment_sheet(c, e):
+    """Reels 1021 + VOX look: an Instagram Comments sheet above your head (your hair in front). The word types in, posts,
+    gets a heart, then your reply drops in with a link chip."""
+    W, H = c.W, c.H; u = W / 1080; al = fade(c, e)
+    word = e.o.get('text', 'EFFECTS'); handle = e.o.get('handle', 'vibha.in.progress')
+    reply = e.o.get('reply', 'Sent you the pack'); chip = e.o.get('chip', '22 effects')
+    sw, sh = 740 * u, 450 * u
+    t_post = 0.3 + 0.06 * len(word) + 0.1; t_heart, t_rep = t_post + 0.25, t_post + 0.4
+    sheet = rrect(sw, sh, 30 * u, (38, 38, 40, 248)); d = ImageDraw.Draw(sheet)
+    white, grey, blue = (245, 245, 245, 255), (160, 160, 166, 255), (0, 149, 246, 255)
+    d.rounded_rectangle([sw / 2 - 32 * u, 14 * u, sw / 2 + 32 * u, 20 * u], 3 * u, fill=(110, 110, 116, 255))
+    d.text((sw / 2, 50 * u), 'Comments', font=font('uib', 26 * u), fill=white, anchor='mm')
+    d.line([(0, 80 * u), (sw, 80 * u)], fill=(60, 60, 64, 255), width=max(1, int(2 * u)))
+    def avatar(sz):
+        a = Image.new('RGBA', (int(sz), int(sz)), (0, 0, 0, 0)); ad = ImageDraw.Draw(a)
+        ad.ellipse([0, 0, sz - 1, sz - 1], fill=(233, 90, 140, 255)); ad.text((sz / 2, sz / 2), 'V', font=font('uib', sz * 0.5), fill=(255, 255, 255, 255), anchor='mm')
+        return a
+    if c.lt < t_post:
+        d.text((sw / 2, 190 * u), 'Start the conversation.', font=font('uim', 21 * u), fill=grey, anchor='mm')
+    else:
+        q = ease_out((c.lt - t_post) / 0.25); oy = (1 - q) * -20 * u; a8 = int(255 * clamp(q * 1.5))
+        av = avatar(46 * u); av.putalpha(av.split()[3].point(lambda v: v * a8 // 255)); sheet.alpha_composite(av, (int(26 * u), int(100 * u + oy)))
+        d.text((88 * u, 108 * u + oy), 'you', font=font('uib', 19 * u), fill=white[:3] + (a8,), anchor='lm')
+        d.text((88 * u + font('uib', 19 * u).getlength('you ') + 4 * u, 108 * u + oy), 'now', font=font('uim', 18 * u), fill=grey[:3] + (a8,), anchor='lm')
+        d.text((86 * u, 128 * u + oy), word, font=font('uib', 50 * u), fill=white[:3] + (a8,))
+        d.text((88 * u, 196 * u + oy), 'Reply', font=font('uim', 17 * u), fill=grey[:3] + (a8,), anchor='lm')
+        hk = ease_back((c.lt - t_heart) / 0.3)
+        if hk > 0:
+            hh = heart(30 * u * hk, (255, 48, 64)); sheet.alpha_composite(hh, (int(sw - 46 * u - hh.width / 2), int(130 * u - hh.height / 2)))
+        rk = ease_out((c.lt - t_rep) / 0.25)
+        if rk > 0:
+            ra = int(255 * clamp(rk * 1.5)); ry = 226 * u + (1 - rk) * 16 * u; rx = 88 * u
+            fc = face_chip(c, e, 34 * u); fc.putalpha(fc.split()[3].point(lambda v: v * ra // 255)); sheet.alpha_composite(fc, (int(rx), int(ry)))
+            d.text((rx + 46 * u, ry + 8 * u), handle, font=font('uib', 18 * u), fill=white[:3] + (ra,), anchor='lm')
+            d.text((rx + 46 * u + font('uib', 18 * u).getlength(handle) + 10 * u, ry + 8 * u), 'Author', font=font('uim', 16 * u), fill=grey[:3] + (ra,), anchor='lm')
+            d.text((rx + 46 * u, ry + 36 * u), reply, font=font('uim', 22 * u), fill=white[:3] + (ra,), anchor='lm')
+            gift = emoji('🎁', 24 * u)
+            if gift is not None:
+                g2 = gift.copy(); g2.putalpha(g2.split()[3].point(lambda v: v * ra // 255))
+                sheet.alpha_composite(g2, (int(rx + 52 * u + font('uim', 22 * u).getlength(reply)), int(ry + 36 * u - g2.height / 2)))
+            ck = ease_back((c.lt - t_rep - 0.12) / 0.3)
+            if ck > 0:
+                ct = text_img(chip, 19 * u, 'uib', (20, 20, 22)); lk = emoji('🔗', 20 * u)
+                cw_ = ct.width + (lk.width + 4 * u if lk is not None else 0) + 10 * u
+                cp = rrect(cw_, ct.height * 0.9, ct.height * 0.45, (255, 214, 10, 255))
+                x0 = 6 * u
+                if lk is not None: cp.alpha_composite(lk, (int(x0 + 4 * u), int((cp.height - lk.height) / 2))); x0 += lk.width + 4 * u
+                cp.alpha_composite(ct, (int(x0), int((cp.height - ct.height) / 2)))
+                cp = cp.resize((max(1, int(cp.width * (0.6 + 0.4 * ck))), max(1, int(cp.height * (0.6 + 0.4 * ck)))))
+                sheet.alpha_composite(cp, (int(rx + 46 * u), int(ry + 56 * u)))
+    ey = sh - 140 * u
+    chars = ['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '😂']
+    for j, ch in enumerate(chars):
+        im = emoji(ch, 36 * u)
+        if im is not None: sheet.alpha_composite(im, (int(36 * u + j * (sw - 72 * u - 36 * u) / 7), int(ey)))
+    iy = sh - 78 * u
+    sheet.alpha_composite(avatar(48 * u), (int(22 * u), int(iy)))
+    d.rounded_rectangle([82 * u, iy, sw - 22 * u, iy + 48 * u], 24 * u, fill=(54, 54, 58, 255))
+    typed = word[:int(clamp((c.lt - 0.3) / (0.06 * len(word))) * len(word) + 1e-3)] if c.lt < t_post else ''
+    if typed:
+        d.text((104 * u, iy + 24 * u), typed, font=font('uib', 26 * u), fill=white, anchor='lm')
+        if int(c.lt * 4) % 2: d.rectangle([104 * u + font('uib', 26 * u).getlength(typed) + 3 * u, iy + 10 * u, 106 * u + font('uib', 26 * u).getlength(typed) + 3 * u, iy + 38 * u], fill=(0, 149, 246, 255))
+    else:
+        d.text((104 * u, iy + 24 * u), f'Add a comment for {handle}', font=font('uim', 20 * u), fill=grey, anchor='lm')
+    pressed = t_post - 0.08 <= c.lt < t_post
+    d.text((sw - 44 * u, iy + 24 * u), 'Post', font=font('uib', 23 * u), fill=(blue if typed else (70, 110, 160, 255)) if not pressed else (140, 200, 255, 255), anchor='rm')
+    sheet = shadowed(sheet, 22, 10, 120)
+    bottom = c.fy - c.fw * 0.5; top = bottom - sheet.height
+    s = 1.0
+    if top < H * 0.02: s = max(0.6, (bottom - H * 0.02) / sheet.height)
+    cy = bottom - sheet.height * s / 2 + 3 * u * math.sin(c.lt * 3.2)
+    place(c, sheet, W / 2 * 0.5 + c.fx * 0.5, cy, s * (0.85 + 0.15 * ease_back(c.lt / 0.3)), 1.2, al * clamp(c.lt / 0.1), behind=True)
+
+
+@effect('comment-box', 'an Instagram comments sheet above your head types your word, posts it, gets a heart and your reply')
+def fx_comment_box(c, e):
+    (comment_bar if e.o.get('look') == 'bar' else comment_sheet)(c, e)
+
+
+# Optional private effects (not part of the public pack). If fx_private.py sits next to this file, its effects load too.
+_PRIV = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fx_private.py')
+if os.path.exists(_PRIV): exec(open(_PRIV).read(), globals())
+
+
 # ---------- video in/out + tracking ----------
 def probe(path):
     j = json.loads(subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=r_frame_rate:format=duration',
@@ -813,7 +1583,7 @@ def main():
         plan = [d]
     for d in plan:
         d['fx'] = ALIASES.get(d['fx'].lower().lstrip('/'), d['fx'].lower().lstrip('/'))
-        if d['fx'] not in EFFECTS: sys.exit(f"Unknown effect '{d['fx']}'. Run --list to see all 22.")
+        if d['fx'] not in EFFECTS: sys.exit(f"Unknown effect '{d['fx']}'. Run --list to see all {len(EFFECTS)}.")
     fr, fps, dur, sw, sh = probe(src)
     for d in plan: d['end'] = min(float(d['end']), dur)
     if sw <= sh: W = a.width; H = int(round(a.width * sh / sw / 2)) * 2
@@ -834,7 +1604,7 @@ def main():
     sm = smooth(faces, fps)
     if sm is None: sm = np.tile([aw / 2, ah * 0.33, aw * 0.15], (len(faces), 1))
     for f in fxs:
-        if f.name in ('noise', 'orbit'): f.cards = load_cards(f.o.get('images'), thumbs)
+        if f.name in CARD_FX: f.cards = load_cards(f.o.get('images'), thumbs)
     stills = sorted({int(round(float(s) * fps)) for s in a.still.split(',')}) if a.still else None
     enc = None
     if not stills:

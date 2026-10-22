@@ -1,10 +1,10 @@
-# 22 Video Effects for Claude
+# 36 Video Effects for Claude
 
 Drop your video into Claude, type `/effects` and the name of an effect. That's the whole edit.
 
 Made by [@vibha.in.progress](https://instagram.com/vibha.in.progress) 💛
 
-![All 22 effects](assets/preview.jpg)
+![All 36 effects](assets/preview.jpg)
 
 ## Install (one line)
 
@@ -29,7 +29,8 @@ Then restart Claude Code. That's it.
 ```
 /effects orbit from 3 to 6 seconds
 /effects spotlight when I say "kill the lights", with the word Claudit behind me
-/effects comment-box at the end, typing EFFECTS
+/effects comment-box at the end, typing CLAUDE
+/effects glass-widgets for the first 3 seconds
 ```
 
 The very first time, Claude sets itself up (about 2 minutes). It needs `ffmpeg` and Python, and it installs them for you if they're missing.
@@ -38,7 +39,7 @@ Claude checks a few frames first, fixes anything that covers your face, then ren
 
 You can stack effects in one go: *"Add locked-on from 6 to 10s, then orbit from 10 to 13s, then a reject stamp on 'no'."*
 
-## The 22 effects
+## The 36 effects
 
 | # | Type this | What happens |
 |---|---|---|
@@ -64,13 +65,28 @@ You can stack effects in one go: *"Add locked-on from 6 to 10s, then orbit from 
 | 20 | `rabbit-hole` | The room tunnels away behind you |
 | 21 | `cover-star` | You become a magazine cover |
 | 22 | `scribble` | Marker doodles draw themselves around you |
+| 23 | `glass-widgets` | Frosted glass widgets and mini artifacts float around your head |
+| 24 | `red-collage` | Black and white you, a giant red word behind, three lines slam in |
+| 25 | `split-headline` | A headline card slides down and pushes you to the bottom half |
+| 26 | `pastel-word` | Lavender room, a giant word behind you, a profile card gets followed |
+| 27 | `check-pills` | Grid-paper room, your reels pinned behind you, blue pills get clicked |
+| 28 | `timeline` | A dark red film look with an editing timeline and a glowing playhead |
+| 29 | `headline-box` | A punch-in with a clean two-line headline |
+| 30 | `profile-wall` | Your reels grid fills the wall while a counter ticks up |
+| 31 | `tier-list` | A tier list drops in and Claude flies into S tier |
+| 32 | `broll-split` | B-roll on top with a price-tag sticker, you below |
+| 33 | `phone-fan` | Your reels fan out like a hand of phones |
+| 34 | `dot-reveal` | Your shot builds out of glowing dots, then snaps into focus |
+| 35 | `headline-wall` | Your headlines pile up behind your head, then a total pops in front |
+| 36 | `checklist` | A Claude task list under your chin, each step ticks green |
 
 Every effect follows your face. Anything that would cover your face goes behind your head instead.
 
 **Tips**
 - Vertical phone videos with you in frame work best.
 - Say the timing in plain words ("when I say 'watch'"). Claude finds the exact second.
-- Want your own reels in `orbit` or `noise`? Give Claude a folder of screenshots.
+- Want your own reels in `orbit`, `noise`, `phone-fan` or `profile-wall`? Give Claude a folder of screenshots.
+- Charts, counters and headlines should use your real numbers. Tell Claude what they are.
 - It renders in 1080p. Ask for 4K if you want it (slower).
 
 ## Honest notes
@@ -83,4 +99,4 @@ Every effect follows your face. Anything that would cover your face goes behind 
 Just tell Claude what you see ("the word covers my face", "it's too fast"). It will fix the plan and render again.
 
 ## Credits
-Face tracking: [OpenCV YuNet](https://github.com/opencv/opencv_zoo) (MIT). Person cut-out: [MediaPipe Selfie Segmenter](https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter) (Apache 2.0). Fonts: Archivo Black, Instrument Serif, Space Mono, Inter (SIL OFL) and Permanent Marker (Apache 2.0); licences are in `fonts/`. Everything else: MIT, see `LICENSE`.
+Face tracking: [OpenCV YuNet](https://github.com/opencv/opencv_zoo) (MIT). Person cut-out: [MediaPipe Selfie Segmenter](https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter) (Apache 2.0). Fonts: Archivo Black, Instrument Serif, Space Mono, Inter, Anton, Montserrat (SIL OFL) and Permanent Marker (Apache 2.0); licences are in `fonts/`. Everything else: MIT, see `LICENSE`.
