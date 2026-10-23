@@ -28,8 +28,10 @@ ALIASES = {'the-noise': 'noise', 'the-lineup': 'lineup', 'bill': 'the-bill', 'to
            'glass': 'glass-widgets', 'widgets': 'glass-widgets', 'collage': 'red-collage', 'split': 'split-headline', 'pastel': 'pastel-word',
            'pills': 'check-pills', 'auto-edit': 'timeline', 'headline': 'headline-box', 'wall': 'profile-wall', 'tiers': 'tier-list',
            'tier': 'tier-list', 'broll': 'broll-split', 'b-roll': 'broll-split', 'fan': 'phone-fan', 'dots': 'dot-reveal',
-           'headlines': 'headline-wall', 'tasks': 'checklist'}
-CARD_FX = ('noise', 'orbit', 'check-pills', 'profile-wall', 'phone-fan', 'broll-split', 'timeline')
+           'headlines': 'headline-wall', 'tasks': 'checklist',
+           'liquid-glass': 'liquid-glass-graph', 'glass-graph': 'liquid-glass-graph', 'carousel': 'carousel-spin', 'match': 'match-cut',
+           'toggles': 'apple-toggles', 'led': 'led-sign', 'push': 'slow-push', 'push-in': 'slow-push'}
+CARD_FX = ('noise', 'orbit', 'carousel-spin', 'check-pills', 'profile-wall', 'phone-fan', 'broll-split', 'timeline')
 
 
 def effect(name, desc):
@@ -1456,6 +1458,221 @@ def comment_sheet(c, e):
 @effect('comment-box', 'an Instagram comments sheet above your head types your word, posts it, gets a heart and your reply')
 def fx_comment_box(c, e):
     (comment_bar if e.o.get('look') == 'bar' else comment_sheet)(c, e)
+
+
+# ---------- pack 3: showcase effects (added 23 Oct 2026) ----------
+def num_parts(s):
+    """'197K' -> (197.0, 'K', 0 decimals); '59%' -> (59.0, '%', 0); '4.8' -> (4.8, '', 1)."""
+    s = str(s).strip(); i = len(s)
+    while i and not (s[i - 1].isdigit()): i -= 1
+    n = s[:i].replace(',', '') or '0'
+    return float(n), s[i:], (len(n.split('.')[1]) if '.' in n else 0)
+
+
+@effect('liquid-glass-graph', 'a liquid glass card floats under your chin while a graph climbs and the number counts up')
+def fx_liquid_glass_graph(c, e):
+    q = ease_out(c.lt / 0.4); al = fade(c, e) * clamp(c.lt / 0.12)
+    if al <= 0: return
+    W = c.W; cw, ch = int(W * 0.74), int(W * 0.46); sc = 0.88 + 0.12 * q
+    cx = W / 2; cy = min(c.H - ch * 0.62, c.fy + c.fw * 2.7) + (1 - q) * W * 0.08
+    gw, gh = int(cw * sc), int(ch * sc)
+    im = glass(c, gw, gh, gh * 0.12, cx, cy, amt=0.16, blur=max(10, W // 30), dark=0.12)
+    hi = cached(e, ('hi', gw, gh), lambda: Image.fromarray(np.dstack([np.full((gh, gw, 3), 255, np.uint8),
+        (np.clip(1 - np.linspace(0, 1, gh) * 2.2, 0, 1)[:, None] * np.ones(gw) * 46).astype(np.uint8)]), 'RGBA'))
+    hm = Image.new('L', (gw, gh), 0); ImageDraw.Draw(hm).rounded_rectangle([0, 0, gw - 1, gh - 1], int(gh * 0.12), fill=255)
+    hl = hi.copy(); hl.putalpha(Image.fromarray(np.minimum(np.asarray(hi)[..., 3], np.asarray(hm)))); im.alpha_composite(hl)
+    lay = Image.new('RGBA', (gw, gh), (0, 0, 0, 0)); d = ImageDraw.Draw(lay); pad = gw * 0.07
+    g = ease_inout((c.lt - 0.25) / max(0.3, e.d * 0.72))
+    lab = e.o.get('text', 'RETENTION').upper()
+    d.text((pad, pad * 0.9), lab, font=font('mono', gw * 0.04), fill=(255, 255, 255, 190))
+    a, _, _ = num_parts(e.o.get('from', '0')); b, suf, dp = num_parts(e.o.get('to', '59%'))
+    v = a + (b - a) * g; s = f'{v:.{dp}f}{suf}'
+    f = font('uib', gw * 0.12); d.text((gw - pad - f.getlength(s), pad * 0.55), s, font=f, fill=(255, 255, 255, 255))
+    x0, x1, y0, y1 = pad, gw - pad, gh - pad * 0.9, gh * 0.36
+    def ycurve(u): return y0 - (y0 - y1) * (u ** 1.5) + math.sin(u * 13) * gh * 0.018 * (1 - u)
+    n = 60; pts = [(x0 + (x1 - x0) * j / n, ycurve(j / n)) for j in range(int(n * g) + 1)]
+    green = rgb(e.o.get('color'), (52, 211, 110))
+    if len(pts) > 1:
+        area = Image.new('RGBA', (gw, gh), (0, 0, 0, 0))
+        ImageDraw.Draw(area).polygon(pts + [(pts[-1][0], y0), (x0, y0)], fill=green + (55,)); lay.alpha_composite(area)
+        glow = Image.new('RGBA', (gw, gh), (0, 0, 0, 0)); lw = max(4, int(gw * 0.011))
+        ImageDraw.Draw(glow).line(pts, fill=green + (255,), width=lw * 3, joint='curve')
+        lay.alpha_composite(glow.filter(ImageFilter.GaussianBlur(lw * 2)))
+        ImageDraw.Draw(lay).line(pts, fill=green + (255,), width=lw, joint='curve')
+        hx, hy = pts[-1]; r = lw * 1.9
+        ImageDraw.Draw(lay).ellipse([hx - r, hy - r, hx + r, hy + r], fill=(255, 255, 255, 255), outline=green + (255,), width=max(2, lw // 2))
+    for j in range(1, 4):
+        yy = y0 - (y0 - y1) * j / 3.4
+        d.line([(x0, yy), (x1, yy)], fill=(255, 255, 255, 40), width=max(1, int(gw * 0.002)))
+    im.alpha_composite(lay)
+    place(c, shadowed(im, max(10, W // 70), W // 90, 90), cx, cy, alpha=al, guard=True)
+
+
+@effect('carousel-spin', 'your reels spin around you in a 3D carousel, then slow to a stop')
+def fx_carousel_spin(c, e):
+    K = int(e.o.get('count', max(6, min(12, len(e.cards))))); cw = int(c.W * float(e.o.get('size', 0.3)))
+    def mk():
+        out = []
+        for i, im in enumerate(e.cards):
+            f = card(vary(im, i) if e.o.get('images') is None else im, cw)
+            dk = f.copy(); a = np.asarray(dk).copy(); a[..., :3] = (a[..., :3] * 0.55).astype(np.uint8); out.append((f, Image.fromarray(a, 'RGBA')))
+        return out
+    cards = cached(e, 'cards', mk)
+    k = ramp(c, e, 0.3, 0.25); xx, yy = grid(c)
+    d = ((xx - c.fx) / (c.W * 0.55)) ** 2 + ((yy - (c.fy + c.H * 0.15)) / (c.H * 0.5)) ** 2
+    dim = 1 - k * 0.5 * np.clip(d, 0, 1) - k * 0.12
+    c.img *= (dim * (1 - c.m) + c.m)[..., None]
+    p = clamp(c.lt / e.d); spin = float(e.o.get('turns', 1.1)) * 2 * math.pi * (1 - (1 - p) ** 2.4)
+    intro, out = ease_out(c.lt / 0.45), fade(c, e, 0.25)
+    R, ry = c.W * 0.56 * intro, c.H * 0.07
+    cy = c.fy + c.fw * 1.8
+    items = sorted((math.cos(i * 2 * math.pi / K + spin), i * 2 * math.pi / K + spin, i) for i in range(K))
+    for depth, th, i in items:
+        n = len(cards); f, dk = cards[(i * (3 if n % 3 else 2)) % n]; src = f if depth >= 0 else dk  # spread similar covers apart
+        sx = max(0.06, abs(math.cos(th)) ** 0.6)
+        s = (0.72 + 0.34 * (depth + 1) / 2) * (0.5 + 0.5 * intro)
+        w2, h2 = max(2, int(src.width * s * sx)), max(2, int(src.height * s))
+        place(c, src.resize((w2, h2), Image.BILINEAR), c.fx + R * math.sin(th), cy + ry * depth, 1.0, 0,
+              out * clamp(c.lt / 0.12) * (0.85 + 0.15 * depth), behind=depth < 0, guard=depth >= 0)
+
+
+MATCH_TXT = ('one clip went in and every cut came back before lunch while editors once spent whole weeks rebuilding the same '
+             'timeline by hand early users called it unsettling then impossible to ignore the dead air was gone the captions '
+             'matched and the colour finally looked like the room it was shot in nobody opened an editing app all week').split()
+
+
+def match_page(c, e, j, wx, wy):
+    """One article page, with the key word in a red box locked at (wx, wy)."""
+    W, H = c.W, c.H; rnd = random.Random(31 + j)
+    paper = [(246, 243, 236), (236, 229, 212), (251, 251, 250), (241, 236, 228), (232, 232, 230), (248, 240, 228)][j % 6]
+    kind = ['serif', 'mont', 'ui', 'serif', 'anton', 'monts'][j % 6]
+    size = W * [0.085, 0.07, 0.072, 0.095, 0.08, 0.068][j % 6]; f = font(kind, size); lh = size * 1.22
+    word = e.o.get('text', 'Claude'); red = rgb(e.o.get('color'), (214, 40, 40))
+    im = Image.new('RGB', (W, H), paper); d = ImageDraw.Draw(im); ink = (40, 38, 36)
+    base = f.getbbox('Ag'); asc = -base[1]
+    ww = f.getlength(word); bx0 = wx - ww / 2
+    def run(x, y, direction):
+        while (x < W + size if direction > 0 else x > -size * 6):
+            w_ = rnd.choice(MATCH_TXT) + ' '
+            if direction < 0: x -= f.getlength(w_)
+            d.text((x, y), w_, font=f, fill=ink)
+            if direction > 0: x += f.getlength(w_)
+    off = rnd.uniform(0, size * 3)
+    ys = wy - asc - lh * math.ceil((wy - asc) / lh + 1)
+    y = ys
+    while y < H + lh:
+        if abs(y - (wy - asc)) < 1: pass
+        else: run(-off - rnd.uniform(0, size * 4), y, 1)
+        y += lh
+    ky = wy - asc
+    d.rectangle([0, ky - lh * 0.1, W, ky + lh * 0.95], fill=paper)
+    run(bx0 - size * 0.45, ky, -1); run(bx0 + ww + size * 0.45, ky, 1)
+    a = np.asarray(im, np.float32) / 255
+    bl = cv2.GaussianBlur(a, (0, 0), W * 0.006)
+    yy, xx = np.ogrid[0:H, 0:W]
+    dd = np.clip((((xx - wx) / (W * 0.62)) ** 2 + ((yy - wy) / (H * 0.32)) ** 2) - 0.15, 0, 1)[..., None]
+    a = a * (1 - dd) + bl * dd
+    a *= (1 - 0.18 * np.clip(dd * 1.4, 0, 1))
+    pg = Image.fromarray((a * 255).astype(np.uint8)).convert('RGBA')
+    bf = font(kind, size); bb = bf.getbbox(word); padx, pady = size * 0.22, size * 0.12
+    box = rrect(ww + 2 * padx, (bb[3] - bb[1]) + 2 * pady + size * 0.08, size * 0.08, red + (255,))
+    ImageDraw.Draw(box).text((padx, pady - bb[1]), word, font=bf, fill=(255, 255, 255, 255))
+    pg.alpha_composite(box, (int(bx0 - padx), int(wy - asc + bb[1] - pady)))
+    return np.asarray(pg.convert('RGB'), np.uint8)
+
+
+@effect('match-cut', 'news pages cut on one word, locked in place behind your head')
+def fx_match_cut(c, e):
+    k = clamp(c.lt / 0.06) * fade(c, e, 0.12)
+    face_cam(c, 1 + 0.06 * ease_out(c.lt / e.d), 0.44)
+    wx, wy = cached(e, 'anchor', lambda: (c.W / 2, max(c.H * 0.1, c.fy - c.fw * 1.55)))
+    durs = [0.15, 0.15, 0.17, 0.19, 0.22, 0.26, 0.3, 0.45]; t, j = c.lt, 0
+    while j < len(durs) - 1 and t > durs[j]: t -= durs[j]; j += 1
+    pg = cached(e, ('pg', j), lambda: match_page(c, e, j, wx, wy)).astype(np.float32) / 255
+    m = c.m[..., None]
+    c.img = c.img * (1 - k) + (pg * (1 - m) + c.img * m) * k
+
+
+@effect('apple-toggles', 'an iPhone settings card under your chin flips its switches on, one line at a time')
+def fx_apple_toggles(c, e):
+    rows = e.o.get('text', 'One clip|Type /effects|Zero editing apps').split('|')
+    W = c.W; cw = int(W * 0.72); rh = int(W * 0.125); ch = rh * len(rows); r = int(W * 0.055)
+    tw, th = int(W * 0.135), int(W * 0.08); tx = cw - int(W * 0.05) - tw
+    def base():
+        im = rrect(cw, ch, r, (255, 255, 255, 250)); d = ImageDraw.Draw(im)
+        f = font('ui', W * 0.05)
+        for i, s in enumerate(rows):
+            d.text((W * 0.05, i * rh + rh / 2), s, font=f, fill=(18, 18, 20, 255), anchor='lm')
+            if i: d.line([(W * 0.05, i * rh), (cw, i * rh)], fill=(222, 222, 226, 255), width=max(2, W // 900))
+        pad = max(10, W // 60) * 2 + W // 90
+        return shadowed(im, max(10, W // 60), W // 90, 110), pad
+    sh, pad = cached(e, 'base', base)
+    ts = [float(x) for x in e.o['ticks'].split('|')] if e.o.get('ticks') else [0.45 + 0.34 * i for i in range(len(rows))]
+    im = sh.copy(); d = ImageDraw.Draw(im)
+    off, on = np.float32((233, 233, 235)), np.float32(rgb(e.o.get('color'), (52, 199, 89)))
+    for i in range(len(rows)):
+        u = ease_out((c.lt - ts[i]) / 0.2) if i < len(ts) else 0.0
+        col = tuple(int(v) for v in off * (1 - u) + on * u) + (255,)
+        x0, y0 = pad + tx, pad + i * rh + (rh - th) / 2
+        d.rounded_rectangle([x0, y0, x0 + tw, y0 + th], th // 2, fill=col)
+        kr = th / 2 - W * 0.006; kx = x0 + th / 2 + (tw - th) * u; ky = y0 + th / 2
+        d.ellipse([kx - kr, ky - kr + W * 0.002, kx + kr, ky + kr + W * 0.004], fill=(0, 0, 0, 40))
+        d.ellipse([kx - kr, ky - kr, kx + kr, ky + kr], fill=(255, 255, 255, 255))
+    q = pop(c, 0.0, 0.38)
+    cy = min(c.H - ch * 0.75, c.fy + c.fw * 2.5)
+    place(c, im, c.W / 2, cy, 0.6 + 0.4 * q, 0, fade(c, e) * clamp(c.lt / 0.1), guard=True)
+
+
+@effect('led-sign', 'the lights drop and a glowing LED sign types itself out behind you')
+def fx_led_sign(c, e):
+    k = ramp(c, e, 0.2, 0.2)
+    face_cam(c, 1 + (float(e.o.get('push', 1.08)) - 1) * ease_inout(c.lt / e.d), 0.42)
+    lines = e.o.get('text', 'CLAUDE').upper().split('|'); col = np.float32(rgb(e.o.get('color'), (255, 146, 48))) / 255
+    def setup():
+        mats = []
+        for s in lines:
+            f = font('uib', 40); w = int(f.getlength(s)) + 8
+            im = Image.new('L', (w, 56), 0); ImageDraw.Draw(im).text((4, 2), s, font=f, fill=255)
+            bb = im.getbbox() or (0, 0, w, 56); im = im.crop(bb)
+            rows = 11; cols = max(1, round(im.width / im.height * rows))
+            mats.append(np.asarray(im.resize((cols, rows), Image.BOX), np.float32) / 255 > 0.42)
+        cols = max(m.shape[1] for m in mats) + 2
+        cell = int(min(c.W * 0.96 / cols, c.H * 0.3 / (len(mats) * 12)))
+        L = np.zeros((len(mats) * 12 - 1, cols), np.float32)
+        for i, m in enumerate(mats): o = (cols - m.shape[1]) // 2; L[i * 12:i * 12 + 11, o:o + m.shape[1]] = m
+        yy, xx = np.mgrid[0:cell, 0:cell].astype(np.float32); rr = np.hypot(xx - cell / 2 + 0.5, yy - cell / 2 + 0.5)
+        dot = np.clip(cell * 0.36 - rr + 0.5, 0, 1)
+        return L, cell, dot, np.random.default_rng(3).random(L.shape).astype(np.float32)
+    L, cell, dot, rnd = cached(e, 'm', setup)
+    rows, cols = L.shape
+    sweep = clamp((c.lt - 0.15) / 0.75) * (cols + 4)
+    lit = L * np.clip((sweep - np.arange(cols)[None, :]) / 3, 0, 1)
+    flick = 0.82 + 0.18 * np.sin(rnd * 50 + c.lt * 30)
+    b = np.maximum(lit * flick, 0.09)
+    pan = np.kron(b, dot)[..., None] * col
+    glow = cv2.GaussianBlur(pan, (0, 0), cell * 0.9)
+    pan = np.clip(pan + glow * 1.6, 0, 1)
+    ph, pw = pan.shape[:2]; x0 = int(c.W / 2 - pw / 2)
+    y0 = int(max(c.H * 0.03, c.fy - c.fw * 0.75 - ph))
+    xx, yy = grid(c)
+    d = ((xx - c.fx) / (c.W * 0.6)) ** 2 + ((yy - (c.fy + c.H * 0.25)) / (c.H * 0.55)) ** 2
+    bright = 1 - k * (0.84 - 0.3 * np.clip(1 - d, 0, 1))
+    c.img *= (bright * (1 - c.m) + c.m * (1 - 0.18 * k))[..., None]
+    xa, xb = max(0, x0), min(c.W, x0 + pw); ya, yb = max(0, y0), min(c.H, y0 + ph)
+    if xb > xa and yb > ya:
+        sub = pan[ya - y0:yb - y0, xa - x0:xb - x0] * k * (1 - c.m[ya:yb, xa:xb, None])
+        c.img[ya:yb, xa:xb] = np.clip(c.img[ya:yb, xa:xb] + sub, 0, 1)
+
+
+@effect('slow-push', 'a slow cinematic push-in from the wide shot to your face, the room melting out of focus')
+def fx_slow_push(c, e):
+    p = ease_inout(c.lt / e.d)
+    face_cam(c, 1 + (float(e.o.get('zoom', 1.6)) - 1) * p, 0.4)
+    s = c.W * float(e.o.get('blur', 0.006)) * p
+    if s > 0.6:
+        bl = cv2.GaussianBlur(c.img, (0, 0), s); m = c.m[..., None]
+        c.img = c.img * m + bl * (1 - m)
+    vignette(c, 0.25 * p)
 
 
 # Optional private effects (not part of the public pack). If fx_private.py sits next to this file, its effects load too.

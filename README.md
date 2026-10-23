@@ -1,10 +1,10 @@
-# 36 Video Effects for Claude
+# 42 Video Effects for Claude
 
 Drop your video into Claude, type `/effects` and the name of an effect. That's the whole edit.
 
 Made by [@vibha.in.progress](https://instagram.com/vibha.in.progress) 💛
 
-![All 36 effects](assets/preview.jpg)
+![All 42 effects](assets/preview.jpg)
 
 ## Install (one line)
 
@@ -39,7 +39,7 @@ Claude checks a few frames first, fixes anything that covers your face, then ren
 
 You can stack effects in one go: *"Add locked-on from 6 to 10s, then orbit from 10 to 13s, then a reject stamp on 'no'."*
 
-## The 36 effects
+## The 42 effects
 
 | # | Type this | What happens |
 |---|---|---|
@@ -79,6 +79,12 @@ You can stack effects in one go: *"Add locked-on from 6 to 10s, then orbit from 
 | 34 | `dot-reveal` | Your shot builds out of glowing dots, then snaps into focus |
 | 35 | `headline-wall` | Your headlines pile up behind your head, then a total pops in front |
 | 36 | `checklist` | A Claude task list under your chin, each step ticks green |
+| 37 | `liquid-glass-graph` | A liquid glass card with a graph that climbs and a number that counts up |
+| 38 | `carousel-spin` | Your reels spin around you in a 3D carousel |
+| 39 | `match-cut` | News pages cut on one word, locked in place behind your head |
+| 40 | `apple-toggles` | iPhone switches flip on under your chin, one line at a time |
+| 41 | `led-sign` | The lights drop and a glowing LED sign types itself out behind you |
+| 42 | `slow-push` | A slow cinematic push-in while the room melts out of focus |
 
 Every effect follows your face. Anything that would cover your face goes behind your head instead.
 
