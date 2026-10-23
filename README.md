@@ -86,6 +86,8 @@ You can stack effects in one go: *"Add locked-on from 6 to 10s, then orbit from 
 | 41 | `led-sign` | The lights drop and a glowing LED sign types itself out behind you |
 | 42 | `slow-push` | A slow cinematic push-in while the room melts out of focus |
 
+Bonus looks: `/effects glitter-spotlight` (golden rays and sparkles), `cover-star look=editorial` (a classic magazine cover) and `liquid-glass-graph look=bento` (a glass dashboard around you).
+
 Every effect follows your face. Anything that would cover your face goes behind your head instead.
 
 **Tips**

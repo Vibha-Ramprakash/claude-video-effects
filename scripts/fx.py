@@ -15,8 +15,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONT = {k: os.path.join(ROOT, 'fonts', v) for k, v in {
     'bold': 'ArchivoBlack-Regular.ttf', 'serif': 'InstrumentSerif-Italic.ttf', 'mono': 'SpaceMono-Bold.ttf',
     'hand': 'PermanentMarker-Regular.ttf', 'ui': 'Inter.ttf', 'uim': 'Inter.ttf', 'uib': 'Inter.ttf',
-    'anton': 'Anton-Regular.ttf', 'mont': 'Montserrat.ttf', 'monts': 'Montserrat.ttf', 'montb': 'Montserrat.ttf'}.items()}
-WGHT = {'ui': (24, 640), 'uim': (24, 540), 'uib': (32, 860), 'mont': (700,), 'monts': (600,), 'montb': (800,)}  # Inter variable: (optical size, weight)
+    'anton': 'Anton-Regular.ttf', 'mont': 'Montserrat.ttf', 'monts': 'Montserrat.ttf', 'montb': 'Montserrat.ttf',
+    'didone': 'PlayfairDisplay.ttf', 'didoneb': 'PlayfairDisplay.ttf', 'didonei': 'PlayfairDisplay-Italic.ttf'}.items()}
+WGHT = {'ui': (24, 640), 'uim': (24, 540), 'uib': (32, 860), 'mont': (700,), 'monts': (600,), 'montb': (800,), 'didone': (500,), 'didoneb': (800,), 'didonei': (500,)}  # Inter variable: (optical size, weight)
 CREAM, INK, PEACH, YELLOW = (244, 233, 216), (22, 22, 24), (255, 183, 165), (255, 214, 10)
 NAMES = ['The Noise', 'The Lineup', 'Locked On', 'Orbit', 'Lean-In', 'Backdrop Word', 'Spotlight', 'The Bill',
          'Moody', 'Swipe', 'The To-Do', 'Comment Box', 'The Tap', 'Pause & Point', 'Uninstall', 'Reel Frame',
@@ -31,6 +32,7 @@ ALIASES = {'the-noise': 'noise', 'the-lineup': 'lineup', 'bill': 'the-bill', 'to
            'headlines': 'headline-wall', 'tasks': 'checklist',
            'liquid-glass': 'liquid-glass-graph', 'glass-graph': 'liquid-glass-graph', 'carousel': 'carousel-spin', 'match': 'match-cut',
            'toggles': 'apple-toggles', 'led': 'led-sign', 'push': 'slow-push', 'push-in': 'slow-push'}
+LOOK_NAMES = {'glitter-spotlight': ('spotlight', 'sparkle'), 'glitter': ('spotlight', 'sparkle')}  # a named look of another effect
 CARD_FX = ('noise', 'orbit', 'carousel-spin', 'check-pills', 'profile-wall', 'phone-fan', 'broll-split', 'timeline')
 
 
@@ -314,6 +316,7 @@ def grid(c):
 
 @effect('spotlight', 'kill the lights, keep you lit')
 def fx_spotlight(c, e):
+    if e.o.get('look') == 'sparkle': return spotlight_sparkle(c, e)
     face_cam(c, 1 + (float(e.o.get('push', 1.1)) - 1) * ease_inout(c.lt / e.d))
     k = ramp(c, e, 0.3, 0.25)
     xx, yy = grid(c)
@@ -652,6 +655,7 @@ def fx_rabbit_hole(c, e):
 
 @effect('cover-star', 'you become a magazine cover, with the title behind your head')
 def fx_cover_star(c, e):
+    if e.o.get('look') == 'editorial': return cover_editorial(c, e)
     k = ease_out(c.lt / 0.35); al = clamp((e.d - c.lt) / 0.2)
     c.img = c.img * (1 - 0.6 * k) + grade(c.img, 'pop') * 0.6 * k
     title = e.o.get('text', 'VIBE').upper(); col = rgb(e.o.get('color'), (232, 36, 52))
@@ -1471,6 +1475,7 @@ def num_parts(s):
 
 @effect('liquid-glass-graph', 'a liquid glass card floats under your chin while a graph climbs and the number counts up')
 def fx_liquid_glass_graph(c, e):
+    if e.o.get('look') == 'bento': return glass_bento(c, e)
     q = ease_out(c.lt / 0.4); al = fade(c, e) * clamp(c.lt / 0.12)
     if al <= 0: return
     W = c.W; cw, ch = int(W * 0.74), int(W * 0.46); sc = 0.88 + 0.12 * q
@@ -1596,6 +1601,7 @@ def fx_match_cut(c, e):
 @effect('apple-toggles', 'an iPhone settings card under your chin flips its switches on, one line at a time')
 def fx_apple_toggles(c, e):
     rows = e.o.get('text', 'One clip|Type /effects|Zero editing apps').split('|')
+    if e.o.get('pos', 'above') != 'below': face_cam(c, 1 + (float(e.o.get('zoom', 1.12)) - 1) * ease_out(c.lt / 0.5), 0.56)
     W = c.W; cw = int(W * 0.72); rh = int(W * 0.125); ch = rh * len(rows); r = int(W * 0.055)
     tw, th = int(W * 0.135), int(W * 0.08); tx = cw - int(W * 0.05) - tw
     def base():
@@ -1618,9 +1624,12 @@ def fx_apple_toggles(c, e):
         kr = th / 2 - W * 0.006; kx = x0 + th / 2 + (tw - th) * u; ky = y0 + th / 2
         d.ellipse([kx - kr, ky - kr + W * 0.002, kx + kr, ky + kr + W * 0.004], fill=(0, 0, 0, 40))
         d.ellipse([kx - kr, ky - kr, kx + kr, ky + kr], fill=(255, 255, 255, 255))
-    q = pop(c, 0.0, 0.38)
-    cy = min(c.H - ch * 0.75, c.fy + c.fw * 2.5)
-    place(c, im, c.W / 2, cy, 0.6 + 0.4 * q, 0, fade(c, e) * clamp(c.lt / 0.1), guard=True)
+    q = pop(c, 0.0, 0.38); al = fade(c, e) * clamp(c.lt / 0.1)
+    if e.o.get('pos', 'above') == 'below':
+        place(c, im, c.W / 2, min(c.H - ch * 0.75, c.fy + c.fw * 2.5), 0.6 + 0.4 * q, 0, al, guard=True); return
+    # above you, tucked behind your head: your hair overlaps only the bottom edge
+    cy = max(c.H * 0.08 + ch / 2, c.fy - c.fw * 0.95 + c.fw * float(e.o.get('overlap', 0.08)) - ch / 2)
+    place(c, im, c.W / 2, cy + (1 - q) * c.W * 0.04, 0.6 + 0.4 * q, 0, al, behind=True)
 
 
 @effect('led-sign', 'the lights drop and a glowing LED sign types itself out behind you')
@@ -1673,6 +1682,166 @@ def fx_slow_push(c, e):
         bl = cv2.GaussianBlur(c.img, (0, 0), s); m = c.m[..., None]
         c.img = c.img * m + bl * (1 - m)
     vignette(c, 0.25 * p)
+
+
+# ---------- pack 3 looks: sparkle spotlight, editorial cover, glass bento (added 23 Oct 2026) ----------
+def star(size, color=(255, 244, 222)):
+    """A 4-point sparkle with a soft glow."""
+    s = max(8, int(size)); h = s / 2; t = s * 0.075
+    im = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+    ImageDraw.Draw(im).polygon([(h, s * 0.02), (h + t, h - t), (s * 0.98, h), (h + t, h + t), (h, s * 0.98), (h - t, h + t), (s * 0.02, h), (h - t, h - t)], fill=tuple(color) + (255,))
+    g = im.filter(ImageFilter.GaussianBlur(s * 0.07)); out = Image.alpha_composite(g, g); out.alpha_composite(im)
+    r = s * 0.07; ImageDraw.Draw(out).ellipse([h - r, h - r, h + r, h + r], fill=(255, 255, 255, 255))
+    return out
+
+
+def gradient_text(s, size, kind, top, bot, glow=None):
+    """Text filled with a vertical colour gradient (gold, chrome...), with an optional glow."""
+    f = font(kind, size); bb = f.getbbox(s); pad = int(size * 0.25 + (glow[1] * 2.5 if glow else 0))
+    w, h = bb[2] - bb[0] + 2 * pad, bb[3] - bb[1] + 2 * pad
+    m = Image.new('L', (w, h), 0); ImageDraw.Draw(m).text((pad - bb[0], pad - bb[1]), s, font=f, fill=255)
+    g = np.linspace(0, 1, h)[:, None, None]; col = np.float32(top) * (1 - g) + np.float32(bot) * g
+    im = Image.fromarray(np.dstack([np.broadcast_to(col, (h, w, 3)).astype(np.uint8), np.asarray(m)]), 'RGBA')
+    if glow:
+        gl = Image.new('RGBA', (w, h), tuple(glow[0]) + (0,)); gl.putalpha(m.filter(ImageFilter.GaussianBlur(glow[1])))
+        im = Image.alpha_composite(Image.alpha_composite(gl, gl), im)
+    return im
+
+
+def spotlight_sparkle(c, e):
+    k = ramp(c, e, 0.25, 0.2); W, H = c.W, c.H
+    face_cam(c, 1 + (float(e.o.get('push', 1.12)) - 1) * ease_inout(c.lt / e.d), 0.46)
+    gold = np.float32(rgb(e.o.get('color'), (255, 190, 128))) / 255
+    xx, yy = grid(c)
+    d = ((xx - c.fx) / (W * 0.55)) ** 2 + ((yy - (c.fy + H * 0.15)) / (H * 0.5)) ** 2
+    pool = np.clip(1 - d, 0, 1) ** 1.5
+    c.img *= ((1 - k * (0.92 - 0.3 * pool)) * (1 - c.m) + c.m * (1 + 0.06 * k))[..., None]
+    ox, oy = c.fx, c.fy - c.fw * 1.1
+    q = 4; sy, sx = np.mgrid[0:H // q, 0:W // q].astype(np.float32) * q
+    ang = np.arctan2(sy - oy, sx - ox); rad = np.hypot(sx - ox, sy - oy)
+    rays = (0.5 + 0.5 * np.cos(16 * ang + c.lt * 0.9)) ** 5 * np.exp(-rad / (H * 0.42)) + 0.9 * np.exp(-(rad / (H * 0.2)) ** 2)
+    rays = cv2.resize(rays.astype(np.float32), (W, H), interpolation=cv2.INTER_LINEAR)
+    halo = np.clip(cv2.GaussianBlur(c.m, (0, 0), W * 0.012) * 1.6 - c.m, 0, 1)
+    c.img += (rays * 0.32 + halo * 0.7)[..., None] * gold * k * (1 - c.m[..., None])
+    word = e.o.get('text', 'CLAUDE')
+    def wimg():
+        size = int(H * 0.2)
+        while size > 20 and font('didonei', size).getlength(word) > W * 0.86: size = int(size * 0.94)
+        im = gradient_text(word, size, 'didonei', (255, 255, 250), (255, 200, 130), glow=(tuple(int(v * 255) for v in gold), size * 0.06))
+        im = shadowed(im, int(size * 0.05), 0, 200)
+        return np.asarray(im, np.float32) / 255
+    wa = cached(e, 'w', wimg); wh, ww = wa.shape[:2]
+    band = np.exp(-(((np.arange(ww)[None, :] + np.arange(wh)[:, None] * 0.5) - (-0.3 + 1.6 * clamp((c.lt - 0.25) / 0.9)) * ww * 1.3) / (ww * 0.07)) ** 2)
+    w2 = wa.copy(); w2[..., :3] = np.clip(w2[..., :3] + band[..., None] * 0.9, 0, 1)
+    s = 1.08 - 0.08 * ease_out(c.lt / 0.5)
+    im = Image.fromarray((w2 * 255).astype(np.uint8), 'RGBA')
+    place(c, im, W / 2, max(wh * 0.5 + H * 0.06, c.fy - c.fw * 1.05 - wh * 0.28), s, 0, k, behind=True)
+    def spots():
+        rnd = random.Random(9)
+        return [(rnd.uniform(0.04, 0.96), rnd.uniform(0.07, 0.62), rnd.uniform(0.025, 0.07), rnd.uniform(0, 6.3), rnd.uniform(5, 9), rnd.random() < 0.35) for _ in range(48)]
+    spr = cached(e, 'star', lambda: star(W * 0.07))
+    for x, y, sz, ph, sp, front in cached(e, 'sp', spots):
+        a = max(0.0, math.sin(ph + c.lt * sp)) ** 2 * k
+        if a < 0.03: continue
+        sc = sz / 0.07 * (0.45 + 0.75 * a)
+        place(c, spr, x * W, y * H, sc, c.lt * 40 + ph * 30, a, behind=not front, guard=front)
+
+
+def cover_editorial(c, e):
+    k = ease_out(c.lt / 0.35); al = fade(c, e); W, H = c.W, c.H
+    lum = (c.img @ np.float32([0.299, 0.587, 0.114]))[..., None]
+    soft = (c.img * 0.82 + lum * 0.18) * 0.9 + np.float32((252, 238, 228)) / 255 * 0.1
+    q = 4; bl = cv2.resize(np.clip(c.img[::q, ::q] - 0.62, 0, 1), (W, H), interpolation=cv2.INTER_LINEAR)
+    bloom = cv2.GaussianBlur(bl, (0, 0), W * 0.012)
+    c.img = c.img * (1 - k) + np.clip(soft + bloom * 0.55, 0, 1) * k
+    ink, rose = rgb(e.o.get('color'), (26, 20, 22)), rgb(e.o.get('accent'), (168, 70, 94))
+    cream = (252, 244, 236)
+    title = e.o.get('text', 'EFFECTS').upper()
+    def mast():
+        size = int(H * 0.16)
+        while size > 20 and font('didoneb', size).getlength(title) + size * 0.04 * len(title) > W * 0.92: size = int(size * 0.95)
+        return tracked(title, size, 'didoneb', ink, size * 0.04)
+    m = cached(e, 'm', mast)
+    s = 1.05 - 0.05 * ease_out(c.lt / 0.5)
+    place(c, m, W / 2, H * 0.085 + m.height / 2, s, 0, al * k, behind=True)
+    iss = cached(e, 'i', lambda: tracked(e.o.get('issue', 'THE ONE-CLIP ISSUE  ·  NO. 42  ·  OCTOBER 2026'), int(W * 0.022), 'ui', ink, W * 0.006))
+    place(c, iss, W / 2, H * 0.075, alpha=al * k, behind=True)
+    rule = cached(e, 'r', lambda: rrect(W * 0.86, max(3, W // 600), 1, ink + (255,)))
+    place(c, rule, W / 2, H * 0.087 + m.height, alpha=al * k * 0.8, behind=True)
+    lines = e.o.get('lines', 'One clip,|42 looks.|NO EDITOR  ·  NO APPS').split('|')
+    styles = [('didonei', 0.085, ink), ('didoneb', 0.105, rose), ('ui', 0.03, ink)]
+    y = H * float(e.o.get('lines_y', 0.575))
+    for j, ln in enumerate(lines):
+        kind, sz, col = styles[min(j, 2)]
+        im = cached(e, ('l', j), lambda: (tracked(ln, int(W * sz), kind, col, W * 0.006) if kind == 'ui' else text_img(ln, W * sz, kind, col, glow=(cream, W * 0.012))))
+        kj = ease_out((c.lt - 0.2 - 0.1 * j) / 0.35)
+        comp(c, im, W * 0.05 - (1 - kj) * W * 0.03, y, al * kj); y += im.height * (0.82 if kind != 'ui' else 1.6)
+    right = e.o.get('right', 'the art of the|effortless edit').split('|')
+    y = H * float(e.o.get('right_y', 0.715))
+    for j, ln in enumerate(right):
+        im = cached(e, ('r', j), lambda: text_img(ln, W * 0.058, 'didonei', ink, glow=(cream, W * 0.01)))
+        kj = ease_out((c.lt - 0.45 - 0.1 * j) / 0.35)
+        comp(c, im, W * 0.95 - im.width + (1 - kj) * W * 0.03, y, al * kj); y += im.height * 0.78
+
+
+def donut(size, pct, col, label, value):
+    S = int(size) * 2; im = Image.new('RGBA', (S, S), (0, 0, 0, 0)); d = ImageDraw.Draw(im); w = int(S * 0.1); pad = int(S * 0.08)
+    d.arc([pad, pad, S - pad, S - pad], 0, 360, fill=(255, 255, 255, 46), width=w)
+    if pct > 0.002: d.arc([pad, pad, S - pad, S - pad], -90, -90 + 360 * pct, fill=tuple(col) + (255,), width=w)
+    f = font('uib', S * 0.2); d.text((S / 2, S / 2 - S * 0.02), value, font=f, fill=(255, 255, 255, 255), anchor='mm')
+    f2 = font('mono', S * 0.065); d.text((S / 2, S / 2 + S * 0.15), label.upper(), font=f2, fill=(255, 255, 255, 170), anchor='mm')
+    return im.resize((int(size), int(size)), Image.LANCZOS)
+
+
+def glass_bento(c, e):
+    W, H = c.W, c.H; al = fade(c, e) * clamp(c.lt / 0.12)
+    if al <= 0: return
+    green = rgb(e.o.get('color'), (52, 211, 110)); peach = (255, 160, 122)
+    # 1. the big graph, on a smoked glass screen behind you
+    q = ease_out(c.lt / 0.4); pw, ph = int(W * 0.9), int(H * 0.3); pcx, pcy = W / 2, H * 0.08 + ph / 2 + (1 - q) * H * 0.02
+    pan = glass(c, pw, ph, W * 0.04, pcx, pcy, amt=0.06, dark=0.62, blur=max(10, W // 30))
+    lay = Image.new('RGBA', (pw, ph), (0, 0, 0, 0)); d = ImageDraw.Draw(lay); pad = pw * 0.05
+    g = ease_inout((c.lt - 0.2) / max(0.3, e.d * 0.75))
+    d.text((pad, pad * 0.8), e.o.get('text', 'VIEWS').upper(), font=font('mono', pw * 0.026), fill=(255, 255, 255, 180))
+    a, _, _ = num_parts(e.o.get('from', '0')); b, suf, dp = num_parts(e.o.get('to', '197K')); s = f'{a + (b - a) * g:.{dp}f}{suf}'
+    f = font('uib', pw * 0.085); d.text((pw - pad - f.getlength(s), pad * 0.45), s, font=f, fill=(255, 255, 255, 255))
+    x0, x1, y0, y1 = pad, pw - pad, ph - pad * 0.8, ph * 0.3
+    for j in range(1, 4): yy = y0 - (y0 - y1) * j / 3.3; d.line([(x0, yy), (x1, yy)], fill=(255, 255, 255, 34), width=max(1, W // 1000))
+    n = 80; pts = [(x0 + (x1 - x0) * j / n, y0 - (y0 - y1) * ((j / n) ** 1.7) + math.sin(j / n * 17) * ph * 0.02 * (1 - j / n)) for j in range(int(n * g) + 1)]
+    if len(pts) > 1:
+        area = Image.new('RGBA', (pw, ph), (0, 0, 0, 0)); ImageDraw.Draw(area).polygon(pts + [(pts[-1][0], y0), (x0, y0)], fill=green + (60,)); lay.alpha_composite(area)
+        lw = max(4, int(pw * 0.006)); gl = Image.new('RGBA', (pw, ph), (0, 0, 0, 0)); ImageDraw.Draw(gl).line(pts, fill=green + (255,), width=lw * 3, joint='curve')
+        lay.alpha_composite(gl.filter(ImageFilter.GaussianBlur(lw * 2))); ImageDraw.Draw(lay).line(pts, fill=green + (255,), width=lw, joint='curve')
+        hx, hy = pts[-1]; r = lw * 2; ImageDraw.Draw(lay).ellipse([hx - r, hy - r, hx + r, hy + r], fill=(255, 255, 255, 255), outline=green + (255,), width=lw // 2)
+    pan.alpha_composite(lay)
+    place(c, pan, pcx, pcy, alpha=al * q, behind=True)
+    # 2. the bento tiles in front of you
+    def tile(i, cx, cy, tw, th, draw):
+        k = pop(c, 0.15 + 0.12 * i, 0.4)
+        if k <= 0: return
+        t = glass(c, tw, th, W * 0.035, cx, cy, amt=0.08, dark=0.5, blur=max(10, W // 34))
+        draw(t, ImageDraw.Draw(t), tw, th); place(c, shadowed(t, max(8, W // 80), W // 120, 90), cx, cy, 0.7 + 0.3 * k, 0, al * clamp(k * 2))
+    dv, dl = (e.o.get('donut', '29%::ERASE share').split('::') + [''])[:2]; pct = num_parts(dv)[0] / 100
+    def dr_donut(t, d, tw, th):
+        p = ease_out((c.lt - 0.35) / 0.8) * pct
+        dn = donut(tw * 0.86, p, peach, dl, f'{round(p * 100)}%'); t.alpha_composite(dn, (int((tw - dn.width) / 2), int((th - dn.height) / 2)))
+    kv, kl = (e.o.get('kpi', '672K::views · top 7 reels').split('::') + [''])[:2]
+    def dr_kpi(t, d, tw, th):
+        b, suf, dp = num_parts(kv); v = b * ease_out((c.lt - 0.45) / 0.8)
+        d.text((tw * 0.1, th * 0.18), f'{v:.{dp}f}{suf}', font=font('uib', th * 0.36), fill=(255, 255, 255, 255))
+        d.text((tw * 0.1, th * 0.7), kl.upper(), font=font('mono', th * 0.1), fill=(255, 255, 255, 170))
+    bv, bl = (e.o.get('bars', '197|140|124|83|50::top reels · K views').split('::') + [''])[:2]; vals = [num_parts(v)[0] for v in bv.split('|')]
+    def dr_bars(t, d, tw, th):
+        d.text((tw * 0.1, th * 0.06), bl.upper(), font=font('mono', tw * 0.055), fill=(255, 255, 255, 170))
+        n = len(vals); bw = tw * 0.8 / n; top, base = th * 0.2, th * 0.88; mx = max(vals)
+        for j, v in enumerate(vals):
+            kk = ease_out((c.lt - 0.4 - 0.08 * j) / 0.5); hgt = (base - top) * v / mx * kk; x = tw * 0.1 + j * bw
+            d.rounded_rectangle([x + bw * 0.14, base - hgt, x + bw * 0.86, base], int(bw * 0.18), fill=(green if j == 0 else (255, 255, 255)) + (255 if j == 0 else 150,))
+            if kk > 0.6: d.text((x + bw / 2, base - hgt - tw * 0.02), f'{v:g}', font=font('uib', tw * 0.06), fill=(255, 255, 255, 230), anchor='md')
+    tw = W * 0.25; gap = W * 0.02; ty = max(H * 0.5, c.fy + c.fw * 1.1)
+    tile(0, W * 0.15, ty + tw * 0.5, tw, tw, dr_donut)
+    tile(1, W * 0.15, ty + tw + gap + tw * 0.28, tw, tw * 0.56, dr_kpi)
+    tile(2, W * 0.85, ty + tw * 0.65, tw, tw * 1.3, dr_bars)
 
 
 # Optional private effects (not part of the public pack). If fx_private.py sits next to this file, its effects load too.
@@ -1800,6 +1969,7 @@ def main():
         plan = [d]
     for d in plan:
         d['fx'] = ALIASES.get(d['fx'].lower().lstrip('/'), d['fx'].lower().lstrip('/'))
+        if d['fx'] in LOOK_NAMES: d['fx'], look = LOOK_NAMES[d['fx']]; d.setdefault('look', look)
         if d['fx'] not in EFFECTS: sys.exit(f"Unknown effect '{d['fx']}'. Run --list to see all {len(EFFECTS)}.")
     fr, fps, dur, sw, sh = probe(src)
     for d in plan: d['end'] = min(float(d['end']), dur)
