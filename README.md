@@ -1,10 +1,10 @@
-# 42 Video Effects for Claude
+# 45 Video Effects for Claude
 
 Drop your video into Claude, type `/effects` and the name of an effect. That's the whole edit.
 
 Made by [@vibha.in.progress](https://instagram.com/vibha.in.progress) 💛
 
-![All 42 effects](assets/preview.jpg)
+![All 45 effects](assets/preview.jpg)
 
 ## Install (one line)
 
@@ -39,7 +39,7 @@ Claude checks a few frames first, fixes anything that covers your face, then ren
 
 You can stack effects in one go: *"Add locked-on from 6 to 10s, then orbit from 10 to 13s, then a reject stamp on 'no'."*
 
-## The 42 effects
+## The 45 effects
 
 | # | Type this | What happens |
 |---|---|---|
@@ -85,6 +85,9 @@ You can stack effects in one go: *"Add locked-on from 6 to 10s, then orbit from 
 | 40 | `apple-toggles` | iPhone switches flip on under your chin, one line at a time |
 | 41 | `led-sign` | The lights drop and a glowing LED sign types itself out behind you |
 | 42 | `slow-push` | A slow cinematic push-in while the room melts out of focus |
+| 43 | `over-the-shoulder-zoom` | Pushes into one corner, a liquid glass graph pops beside your head, then the other corner with a second graph |
+| 44 | `messages` | iMessage notifications pop in one after another with a soft glow |
+| 45 | `place-in-grid` | You shrink into the centre of your 3x3 profile grid, your reels pop in around you with view counts |
 
 Bonus looks: `/effects glitter-spotlight` (golden rays and sparkles), `cover-star look=editorial` (a classic magazine cover) and `liquid-glass-graph look=bento` (a glass dashboard around you).
 

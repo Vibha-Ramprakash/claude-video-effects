@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""22 starter video effects for Claude, by @vibha.in.progress
+"""45 starter video effects for Claude, by @vibha.in.progress
 
 One effect:    python fx.py orbit in.mp4 out.mp4 --start 3.2 --end 6
 Many effects:  python fx.py --plan plan.json in.mp4 out.mp4
@@ -31,9 +31,11 @@ ALIASES = {'the-noise': 'noise', 'the-lineup': 'lineup', 'bill': 'the-bill', 'to
            'tier': 'tier-list', 'broll': 'broll-split', 'b-roll': 'broll-split', 'fan': 'phone-fan', 'dots': 'dot-reveal',
            'headlines': 'headline-wall', 'tasks': 'checklist',
            'liquid-glass': 'liquid-glass-graph', 'glass-graph': 'liquid-glass-graph', 'carousel': 'carousel-spin', 'match': 'match-cut',
-           'toggles': 'apple-toggles', 'led': 'led-sign', 'push': 'slow-push', 'push-in': 'slow-push'}
+           'toggles': 'apple-toggles', 'led': 'led-sign', 'push': 'slow-push', 'push-in': 'slow-push',
+           'ots': 'over-the-shoulder-zoom', 'shoulder-zoom': 'over-the-shoulder-zoom', 'corner-zoom': 'over-the-shoulder-zoom',
+           'imessage': 'messages', 'texts': 'messages', 'notifications': 'messages', 'grid': 'place-in-grid', 'profile-grid': 'place-in-grid'}
 LOOK_NAMES = {'glitter-spotlight': ('spotlight', 'sparkle'), 'glitter': ('spotlight', 'sparkle')}  # a named look of another effect
-CARD_FX = ('noise', 'orbit', 'carousel-spin', 'check-pills', 'profile-wall', 'phone-fan', 'broll-split', 'timeline')
+CARD_FX = ('noise', 'orbit', 'carousel-spin', 'place-in-grid', 'check-pills', 'profile-wall', 'phone-fan', 'broll-split', 'timeline')
 
 
 def effect(name, desc):
@@ -1842,6 +1844,200 @@ def glass_bento(c, e):
     tile(0, W * 0.15, ty + tw * 0.5, tw, tw, dr_donut)
     tile(1, W * 0.15, ty + tw + gap + tw * 0.28, tw, tw * 0.56, dr_kpi)
     tile(2, W * 0.85, ty + tw * 0.65, tw, tw * 1.3, dr_bars)
+
+
+# ---------- pack 4: over-the-shoulder zoom, messages, place-in-grid (added 27 Oct 2026) ----------
+GREEN = (52, 211, 102)
+
+
+def liquid_glass(c, box, r=None, blur=None):
+    """Liquid glass panel on c.img, after liquid-glass-js (MIT, dashersw): rounded-rect SDF, edge + rim refraction
+    along the normal, a light blur so the room still shows through, a faint top-to-bottom tint, a specular rim lit
+    from the top-left, plus a red/blue fringe at the edge (after React Bits' GlassSurface)."""
+    x0, y0, x1, y1 = [int(round(v)) for v in box]; w, h = x1 - x0, y1 - y0
+    if w < 8 or h < 8: return
+    u = c.W / 2160; r = r or 72 * u; M = int(140 * u)
+    X0, Y0, X1, Y1 = max(0, x0 - M), max(0, y0 - M), min(c.W, x1 + M), min(c.H, y1 + M)
+    tex = cv2.GaussianBlur(c.img[Y0:Y1, X0:X1], (0, 0), blur or 7 * u)
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    q = np.stack([np.abs(xx - w / 2) - (w / 2 - r), np.abs(yy - h / 2) - (h / 2 - r)], -1)
+    sdf = np.linalg.norm(np.maximum(q, 0), axis=-1) + np.minimum(np.maximum(q[..., 0], q[..., 1]), 0) - r
+    d = np.maximum(-sdf, 0) / u
+    nx, ny = xx - w / 2, yy - h / 2; nl = np.sqrt(nx * nx + ny * ny) + 1e-3; nx, ny = nx / nl, ny / nl
+    k = (70 * np.exp(-d / 14) + 34 * np.exp(-d / 70) + 10 * np.exp(-d / 260)) * u
+    out = np.zeros((h, w, 3), np.float32)
+    for ch, fr in enumerate((1.10, 1.0, 0.90)):
+        mx = (xx + x0 - X0 + nx * k * fr).astype(np.float32); my = (yy + y0 - Y0 + ny * k * fr).astype(np.float32)
+        out[..., ch] = cv2.remap(tex[..., ch], mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+    out = out * 0.86 + 0.06 * (1.0 - 0.30 * (yy / h))[..., None] - 0.05
+    spec = np.exp(-d / 5) * np.clip(0.55 - 0.45 * (nx * 0.6 + ny * 0.8), 0, 1)
+    out = np.clip(out + (spec * 0.85 + np.exp(-d / 30) * 0.10)[..., None], 0, 1)
+    a = np.clip(0.5 - sdf, 0, 1)[..., None]
+    gx0, gy0, gx1, gy1 = max(0, x0), max(0, y0), min(c.W, x1), min(c.H, y1)
+    sl = (slice(gy0 - y0, gy1 - y0), slice(gx0 - x0, gx1 - x0))
+    dst = c.img[gy0:gy1, gx0:gx1]; dst[:] = dst * (1 - a[sl]) + out[sl] * a[sl]
+
+
+def split_num(s):
+    """'197K' -> (197.0, 'K', 0 decimals); '82%' -> (82.0, '%', 0); '1.2M' -> (1.2, 'M', 1)."""
+    import re as _re
+    m = _re.match(r'\s*([\d.,]+)\s*(.*)', str(s)); n = m.group(1).replace(',', '') if m else '0'
+    return float(n), (m.group(2) if m else ''), (len(n.split('.')[1]) if '.' in n else 0)
+
+
+def glass_graph(c, cx, cy, k, prog, label, value, kind, scale=1.0):
+    """A see-through glass stat card: spaced-caps label, a number that counts up, a glowing line or bar chart."""
+    if k <= 0: return
+    u = c.W / 2160 * scale; sc = 0.82 + 0.18 * ease_back(k)
+    w, h = 1760 * u * sc, 1056 * u * sc; lift = 40 * u * (1 - k)
+    x0, y0 = cx - w / 2, cy - h / 2 + lift
+    liquid_glass(c, (x0, y0, x0 + w, y0 + h))
+    v = w / 1500
+    lay = Image.new('RGBA', (int(w) + 40, int(h) + 40), (0, 0, 0, 0)); d = ImageDraw.Draw(lay); o = 20
+    lab, big = font('uim', 44 * v), font('uib', 170 * v)
+    num, suf, dec = split_num(value); txt = f'{num * ease_out(prog):.{dec}f}{suf}'
+    xx = o + 64 * v
+    for chh in label.upper(): d.text((xx, o + 64 * v), chh, font=lab, fill=(255, 255, 255, 235)); xx += lab.getlength(chh) + 9 * v
+    d.text((o + w - 70 * v - big.getlength(txt), o + 40 * v), txt, font=big, fill=(255, 255, 255, 255))
+    gx0, gx1, gy0, gy1 = o + 64 * v, o + w - 64 * v, o + 290 * v, o + h - 80 * v
+    for j in range(3): d.line([gx0, gy0 + (gy1 - gy0) * j / 2, gx1, gy0 + (gy1 - gy0) * j / 2], fill=(255, 255, 255, 70), width=max(1, int(3 * v)))
+    halo = Image.new('RGBA', lay.size, (0, 0, 0, 0)); hd = ImageDraw.Draw(halo)
+    xx = o + 64 * v
+    for chh in label.upper(): hd.text((xx, o + 64 * v), chh, font=lab, fill=(0, 0, 0, 150)); xx += lab.getlength(chh) + 9 * v
+    hd.text((o + w - 70 * v - big.getlength(txt), o + 40 * v), txt, font=big, fill=(0, 0, 0, 150))
+    base = halo.filter(ImageFilter.GaussianBlur(10 * v))
+    chart = Image.new('RGBA', lay.size, (0, 0, 0, 0)); cd = ImageDraw.Draw(chart)
+    if kind == 'line':
+        ys = [0.04, 0.07, 0.10, 0.16, 0.22, 0.35, 0.52, 0.74, 1.0]; n = max(0.02, (len(ys) - 1) * ease_out(prog)); pts = []
+        for i in range(int(n) + 1):
+            t = min(i, n); i0 = min(int(t), len(ys) - 2); f = t - i0; yv = ys[i0] + (ys[i0 + 1] - ys[i0]) * f
+            pts.append((gx0 + (gx1 - gx0) * t / (len(ys) - 1), gy1 - (gy1 - gy0) * yv))
+        if len(pts) > 1:
+            cd.polygon(pts + [(pts[-1][0], gy1), (pts[0][0], gy1)], fill=GREEN + (70,))
+            gl = Image.new('RGBA', lay.size, (0, 0, 0, 0)); ImageDraw.Draw(gl).line(pts, fill=GREEN + (255,), width=int(60 * v), joint='curve')
+            chart.alpha_composite(gl.filter(ImageFilter.GaussianBlur(26 * v)))
+            cd = ImageDraw.Draw(chart); cd.line(pts, fill=GREEN + (255,), width=max(2, int(20 * v)), joint='curve')
+            ex, ey = pts[-1]
+            cd.ellipse([ex - 30 * v, ey - 30 * v, ex + 30 * v, ey + 30 * v], fill=GREEN + (90,)); cd.ellipse([ex - 15 * v, ey - 15 * v, ex + 15 * v, ey + 15 * v], fill=(235, 255, 240, 255))
+    else:
+        vals = [1.0, 0.71, 0.63, 0.42, 0.25, 0.20, 0.19]; bw = (gx1 - gx0) / len(vals)
+        for i, val in enumerate(vals):
+            g = ease_out(clamp(prog * 1.6 - i * 0.1)); top = gy1 - (gy1 - gy0) * val * g; bx = gx0 + i * bw + bw * 0.16
+            if i == 0:
+                gl = Image.new('RGBA', lay.size, (0, 0, 0, 0)); ImageDraw.Draw(gl).rounded_rectangle([bx, top, bx + bw * 0.68, gy1], int(18 * v), fill=GREEN + (230,))
+                chart.alpha_composite(gl.filter(ImageFilter.GaussianBlur(22 * v))); cd = ImageDraw.Draw(chart)
+            cd.rounded_rectangle([bx, top, bx + bw * 0.68, gy1], int(18 * v), fill=GREEN + (230 if i == 0 else 120,))
+    base.alpha_composite(chart); base.alpha_composite(lay)
+    comp(c, base, x0 - o, y0 - o)
+
+
+@effect('over-the-shoulder-zoom', 'the camera pushes into one top corner, a liquid glass graph pops beside your head, then the other corner with a second graph')
+def fx_over_the_shoulder_zoom(c, e):
+    p = clamp(c.lt / e.d); z0 = float(e.o.get('zoom', 2.0))
+    lx, rx = c.fx - c.W * 0.17, c.fx + c.W * 0.19
+    keys = [(0, 1.0, c.fx, c.fy), (0.30, 1.04, c.fx, c.fy), (0.46, z0, lx, c.fy), (0.66, z0 + 0.04, lx, c.fy), (0.76, 1.05, c.fx, c.fy), (0.87, z0, rx, c.fy), (1.0, z0 + 0.04, rx, c.fy)]
+    for (pa, za, xa, ya), (pb, zb, xb, yb) in zip(keys, keys[1:]):
+        if pa <= p <= pb: q = ease_inout((p - pa) / (pb - pa)); z, x, y = za + (zb - za) * q, xa + (xb - xa) * q, ya + (yb - ya) * q; break
+    camera(c, z, x, y)
+    k1 = clamp((p - 0.42) / 0.065) * (1 - clamp((p - 0.66) / 0.055)); k2 = clamp((p - 0.84) / 0.065)
+    if k1 <= 0 and k2 <= 0: return
+    me, m = c.img.copy(), c.m[..., None]
+    a, b = (e.o.get('text') or 'Views · this reel|Top reels · total').split('|')[:2]
+    va, vb = (str(e.o.get('to') or '197K|672K')).split('|')[:2]
+    glass_graph(c, c.W * 0.43, c.H * 0.255, k1, clamp((p - 0.45) / 0.17), a, va, 'line')
+    glass_graph(c, c.W * 0.57, c.H * 0.255, k2, clamp((p - 0.86) / 0.14), b, vb, 'bars')
+    c.img = c.img * (1 - m) + me * m   # your head stays in front of the cards
+
+
+def msg_bubble(c, y, title, body, a):
+    """One creamy glass iMessage notification with a soft white halo, centred at height y."""
+    u = c.W / 2160; w, h = int(1880 * u), int(330 * u); x0 = (c.W - w) // 2; y0 = int(y - h / 2)
+    if a <= 0 or y0 + h < 0 or y0 > c.H: return
+    s = 0.82 + 0.18 * ease_back(a); ww, hh = int(w * s), int(h * s); xs, ys = (c.W - ww) // 2, int(y - hh / 2)
+    halo = Image.new('RGBA', (ww + int(240 * u), hh + int(240 * u)), (0, 0, 0, 0)); p = int(120 * u)
+    ImageDraw.Draw(halo).rounded_rectangle([p - 30 * u, p - 30 * u, p + ww + 30 * u, p + hh + 30 * u], int(100 * u), fill=(255, 250, 240, int(215 * clamp(a * 2))))
+    comp(c, halo.filter(ImageFilter.GaussianBlur(56 * u)), xs - p, ys - p)
+    gx0, gy0, gx1, gy1 = max(0, xs), max(0, ys), min(c.W, xs + ww), min(c.H, ys + hh)
+    if gx1 <= gx0 or gy1 <= gy0: return
+    reg = cv2.GaussianBlur(c.img[gy0:gy1, gx0:gx1], (0, 0), 20 * u)
+    yy = np.linspace(0, 1, gy1 - gy0, dtype=np.float32)[:, None, None]
+    reg = reg * (1 - 0.78) + np.float32([252, 246, 238]) / 255 * 0.78 + (1 - yy) * 0.08
+    mk = Image.new('L', (ww, hh), 0); ImageDraw.Draw(mk).rounded_rectangle([0, 0, ww - 1, hh - 1], int(70 * u * s), fill=255)
+    mk = np.asarray(mk, np.float32)[gy0 - ys:gy1 - ys, gx0 - xs:gx1 - xs, None] / 255 * clamp(a * 2.5)
+    dst = c.img[gy0:gy1, gx0:gx1]; dst[:] = dst * (1 - mk) + np.clip(reg, 0, 1) * mk
+    lay = Image.new('RGBA', (ww, hh), (0, 0, 0, 0)); d = ImageDraw.Draw(lay); v = s * u; al = int(255 * clamp(a * 2.5))
+    d.rounded_rectangle([1, 1, ww - 2, hh - 2], int(70 * v), outline=(255, 255, 255, int(170 * clamp(a * 2.5))), width=max(1, int(3 * v)))
+    ic = np.linspace(0, 1, int(160 * v), dtype=np.float32)[:, None]
+    icon = np.dstack([110 - ic * 64, 232 - ic * 51, 120 - ic * 51, np.full_like(ic, 255)]).repeat(int(160 * v), 1).astype(np.uint8)
+    icon = Image.fromarray(icon, 'RGBA'); im_ = Image.new('L', icon.size, 0); ImageDraw.Draw(im_).rounded_rectangle([0, 0, icon.width - 1, icon.height - 1], int(40 * v), fill=al); icon.putalpha(im_)
+    ImageDraw.Draw(icon).ellipse([30 * v, 34 * v, 130 * v, 114 * v], fill=(255, 255, 255, al)); ImageDraw.Draw(icon).polygon([(44 * v, 102 * v), (36 * v, 130 * v), (72 * v, 110 * v)], fill=(255, 255, 255, al))
+    lay.alpha_composite(icon, (int(56 * v), int(70 * v)))
+    d.text((262 * v, 76 * v), title, font=font('uib', 72 * v), fill=(28, 28, 30, al)); d.text((262 * v, 170 * v), body, font=font('uim', 76 * v), fill=(44, 44, 46, al))
+    comp(c, lay, xs, ys)
+
+
+@effect('messages', 'iMessage notifications pop in one after another, creamy glass with a soft glow, stacking up above the bottom of the frame')
+def fx_messages(c, e):
+    msgs = (e.o.get('text') or 'how did you edit this??|wait, which app is this|send me the effects pls|EFFECTS').split('|')
+    title = e.o.get('title', 'Messages'); n = len(msgs); u = c.W / 2160
+    gap = min(0.4, e.d * 0.75 / max(1, n)); pops = [0.13 + i * gap for i in range(n)]
+    bottom = c.H * float(e.o.get('y', 0.61)); out = fade(c, e, 0.2)
+    for k in range(n):
+        if c.lt < pops[k]: continue
+        newer = sum(ease_out(clamp((c.lt - pops[j]) / 0.17)) for j in range(k + 1, n) if c.lt >= pops[j])
+        msg_bubble(c, bottom - 165 * u - newer * 365 * u, title, msgs[k], clamp((c.lt - pops[k]) / 0.17) * out)
+
+
+def views_icon(px):
+    """The Instagram 'views' eye: an arc above a teardrop (traced from the IG app)."""
+    paths = [[(325, 490), [(-43, -9, -73, -30, -97, -68), (-28, -46, -14, -53, 22, -10), (37, 45, 79, 62, 133, 55), (33, -4, 50, -14, 80, -48), (40, -44, 60, -46, 37, -3), (-29, 52, -112, 87, -175, 74)]],
+             [(315, 405), [(-51, -50, -21, -115, 52, -115), (51, 0, 88, 65, 41, 72), (-14, 2, -29, 15, -38, 35), (-8, 18, -19, 33, -23, 33), (-4, 0, -19, -11, -32, -25)]]]
+    k = px / 24 * 4; im = Image.new('L', (int(34 * k), int(24 * k)), 0); d = ImageDraw.Draw(im)
+    tx = lambda x, y: ((0.1 * x - 19) * k, (80 - 0.1 * y - 29) * k)
+    for (sx, sy), segs in paths:
+        pts = [tx(sx, sy)]; cx, cy = sx, sy
+        for s in segs:
+            p0, p1, p2, p3 = (cx, cy), (cx + s[0], cy + s[1]), (cx + s[2], cy + s[3]), (cx + s[4], cy + s[5])
+            for j in range(1, 13):
+                t = j / 12; pts.append(tx(*[(1 - t) ** 3 * a + 3 * (1 - t) ** 2 * t * b + 3 * (1 - t) * t * t * cc + t ** 3 * dd for a, b, cc, dd in zip(p0, p1, p2, p3)]))
+            cx, cy = p3
+        d.polygon(pts, fill=255)
+    im = im.resize((int(34 * px / 24), px), Image.LANCZOS); out = Image.new('RGBA', im.size, (255, 255, 255, 0)); out.putalpha(im); return out
+
+
+def grid_tile(im, w, h, views, r):
+    t = im.convert('RGB'); s = max(w / t.width, h / t.height); t = t.resize((int(t.width * s) + 1, int(t.height * s) + 1), Image.LANCZOS)
+    t = t.crop(((t.width - w) // 2, (t.height - h) // 2, (t.width - w) // 2 + w, (t.height - h) // 2 + h)).convert('RGBA')
+    mk = Image.new('L', (w, h), 0); ImageDraw.Draw(mk).rounded_rectangle([0, 0, w - 1, h - 1], r, fill=255)
+    if views:
+        u = w / 660; fd = Image.linear_gradient('L').resize((w, int(h * 0.28))).point(lambda v: int(v * 0.75))
+        sh = Image.new('RGBA', fd.size, (0, 0, 0, 0)); sh.putalpha(fd); t.alpha_composite(sh, (0, h - fd.height))
+        ic = views_icon(int(56 * u)); x, y = int(34 * u), int(h - 92 * u); t.alpha_composite(ic, (x, y + int(2 * u)))
+        ImageDraw.Draw(t).text((x + ic.width + 14 * u, y - 6 * u), views, font=font('uib', 58 * u), fill=(255, 255, 255, 255))
+    t.putalpha(mk); ImageDraw.Draw(t).rounded_rectangle([1, 1, w - 2, h - 2], r, outline=(255, 255, 255, 150), width=max(1, int(4 * w / 660)))
+    return t
+
+
+@effect('place-in-grid', 'you shrink into the centre tile of your 3x3 profile grid on frosted glass, then 8 of your reels pop in around you, one per frame, view counts on every tile')
+def fx_place_in_grid(c, e):
+    W, H = c.W, c.H; g, m = int(33 * W / 2160), int(68 * W / 2160)
+    tw = (W - 2 * m - 2 * g) // 3; th = int(tw * 16 / 9); top = (H - (3 * th + 2 * g)) // 2; r = int(28 * W / 2160)
+    rect = lambda i: (m + (i % 3) * (tw + g), top + (i // 3) * (th + g))
+    views = (e.o.get('views') or '2.4M|847K|1.2M|312K|3.4M|596K|268K|1.8M|3.1M').split('|')
+    tiles = cached(e, 'tiles', lambda: [grid_tile(vary(im, i) if e.o.get('images') is None else im, tw, th, views[i % len(views)], r) for i, im in enumerate((e.cards * 8)[:8])])
+    me = c.img.copy(); p = ease_inout(clamp(c.lt / 0.45))
+    fz = cv2.resize(cv2.GaussianBlur(cv2.resize(me, (W // 8, H // 8)), (0, 0), 14), (W, H), interpolation=cv2.INTER_CUBIC)
+    lum = (fz @ np.float32([0.299, 0.587, 0.114]))[..., None]; fz = np.clip(lum + (fz - lum) * 1.25, 0, 1)
+    c.img = fz * (1 - 0.37) + np.float32([255, 248, 238]) / 255 * 0.37
+    for j, slot in enumerate((1, 5, 7, 3, 2, 8, 6, 0)):
+        a = clamp((c.lt - 0.47 - j / 30) / 0.1)
+        if a > 0: x, y = rect(slot); place(c, tiles[j], x + tw / 2, y + th / 2, 0.82 + 0.18 * ease_back(a), 0, clamp(a * 2))
+    cx, cy = rect(4); w2, h2 = int(W + (tw - W) * p), int(H + (th - H) * p)
+    mine = Image.fromarray((np.clip(me, 0, 1) * 255).astype(np.uint8))
+    tile = grid_tile(mine, w2, h2, views[8 % len(views)] if p > 0.9 else None, int(r * p))
+    comp(c, tile, cx * p, cy * p)
+    if p > 0.95: d = Image.new('RGBA', (tw + 8, th + 8), (0, 0, 0, 0)); ImageDraw.Draw(d).rounded_rectangle([2, 2, tw + 5, th + 5], r + 2, outline=(217, 119, 87, 255), width=8); comp(c, d, cx - 4, cy - 4)
+
 
 
 # Optional private effects (not part of the public pack). If fx_private.py sits next to this file, its effects load too.
