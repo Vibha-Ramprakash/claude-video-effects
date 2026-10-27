@@ -713,16 +713,37 @@ def fade(c, e, t=0.2): return clamp((e.d - c.lt) / t)
 GREEN, BLUE, PURPLE, ORANGE, RED = (34, 197, 94), (10, 132, 255), (124, 92, 255), (217, 119, 87), (238, 34, 34)
 
 
-def glass(c, w, h, r, cx, cy, amt=0.22, tint=(255, 255, 255), blur=None, alpha=240, dark=0.0):
-    """A frosted glass panel: a blurred, tinted copy of whatever sits behind it."""
-    w, h = int(w), int(h); blur = blur or max(8, c.W // 40); pad = blur * 2
-    x0, y0 = int(cx - w / 2), int(cy - h / 2)
+def glass(c, w, h, r, cx, cy, amt=0.22, tint=(255, 255, 255), blur=None, alpha=240, dark=0.0, liquid=True):
+    """A glass panel made from whatever sits behind it. liquid=True (default since 27 Oct 2026) is see-through liquid
+    glass after liquid-glass-js (MIT, dashersw): light blur, refraction bending the room at the rim, a red/blue fringe
+    (after React Bits' GlassSurface) and a specular edge lit from the top-left. liquid=False is the old frosted card."""
+    w, h = int(w), int(h); blur = blur or max(8, c.W // 40); x0, y0 = int(cx - w / 2), int(cy - h / 2)
+    if not liquid:
+        pad = blur * 2
+        xs = np.clip(np.arange(x0 - pad, x0 + w + pad), 0, c.W - 1); ys = np.clip(np.arange(y0 - pad, y0 + h + pad), 0, c.H - 1)
+        reg = cv2.GaussianBlur(np.ascontiguousarray(c.img[np.ix_(ys, xs)]), (0, 0), blur)[pad:pad + h, pad:pad + w]
+        reg = reg * (1 - dark) * (1 - amt) + np.float32(tint) / 255 * amt
+        im = Image.fromarray((np.clip(reg, 0, 1) * 255).astype(np.uint8)).convert('RGBA')
+        m = Image.new('L', (w, h), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, w - 1, h - 1], int(r), fill=alpha); im.putalpha(m)
+        ImageDraw.Draw(im).rounded_rectangle([1, 1, w - 2, h - 2], int(r), outline=(255, 255, 255, 120), width=max(2, c.W // 540))
+        return im
+    u = c.W / 2160; pad = int(140 * u) + 4
     xs = np.clip(np.arange(x0 - pad, x0 + w + pad), 0, c.W - 1); ys = np.clip(np.arange(y0 - pad, y0 + h + pad), 0, c.H - 1)
-    reg = cv2.GaussianBlur(np.ascontiguousarray(c.img[np.ix_(ys, xs)]), (0, 0), blur)[pad:pad + h, pad:pad + w]
-    reg = reg * (1 - dark) * (1 - amt) + np.float32(tint) / 255 * amt
-    im = Image.fromarray((np.clip(reg, 0, 1) * 255).astype(np.uint8)).convert('RGBA')
-    m = Image.new('L', (w, h), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, w - 1, h - 1], int(r), fill=alpha); im.putalpha(m)
-    ImageDraw.Draw(im).rounded_rectangle([1, 1, w - 2, h - 2], int(r), outline=(255, 255, 255, 120), width=max(2, c.W // 540))
+    tex = cv2.GaussianBlur(np.ascontiguousarray(c.img[np.ix_(ys, xs)]), (0, 0), max(3.0, blur * 0.3))
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32); r = max(2.0, float(r))
+    q = np.stack([np.abs(xx - w / 2) - (w / 2 - r), np.abs(yy - h / 2) - (h / 2 - r)], -1)
+    sdf = np.linalg.norm(np.maximum(q, 0), axis=-1) + np.minimum(np.maximum(q[..., 0], q[..., 1]), 0) - r
+    d = np.maximum(-sdf, 0) / u
+    nx, ny = xx - w / 2, yy - h / 2; nl = np.sqrt(nx * nx + ny * ny) + 1e-3; nx, ny = nx / nl, ny / nl
+    k = (70 * np.exp(-d / 14) + 34 * np.exp(-d / 70) + 10 * np.exp(-d / 260)) * u
+    out = np.zeros((h, w, 3), np.float32)
+    for ch, fr in enumerate((1.10, 1.0, 0.90)):
+        out[..., ch] = cv2.remap(tex[..., ch], (xx + pad + nx * k * fr).astype(np.float32), (yy + pad + ny * k * fr).astype(np.float32), cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+    out = out * (1 - dark * 0.3) * 0.9 + np.float32(tint) / 255 * amt * 0.25 + 0.05 * (1.0 - 0.30 * (yy / h))[..., None] - 0.04
+    spec = np.exp(-d / 5) * np.clip(0.55 - 0.45 * (nx * 0.6 + ny * 0.8), 0, 1)
+    out = np.clip(out + (spec * 0.85 + np.exp(-d / 30) * 0.10)[..., None], 0, 1)
+    a = (np.clip(0.5 - sdf, 0, 1) * alpha).astype(np.uint8)
+    im = Image.fromarray((out * 255).astype(np.uint8)).convert('RGBA'); im.putalpha(Image.fromarray(a))
     return im
 
 
