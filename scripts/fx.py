@@ -33,9 +33,9 @@ ALIASES = {'the-noise': 'noise', 'the-lineup': 'lineup', 'bill': 'the-bill', 'to
            'liquid-glass': 'liquid-glass-graph', 'glass-graph': 'liquid-glass-graph', 'carousel': 'carousel-spin', 'match': 'match-cut',
            'toggles': 'apple-toggles', 'led': 'led-sign', 'push': 'slow-push', 'push-in': 'slow-push',
            'ots': 'over-the-shoulder-zoom', 'shoulder-zoom': 'over-the-shoulder-zoom', 'corner-zoom': 'over-the-shoulder-zoom',
-           'imessage': 'messages', 'texts': 'messages', 'notifications': 'messages', 'grid': 'place-in-grid', 'profile-grid': 'place-in-grid'}
+           'tape': 'tape-label', 'select': 'select-resize', 'resize': 'select-resize', 'trim': 'wave-trim', 'strike': 'huge-strike', 'crayon': 'crayon-write', 'deal': 'fan-build', 'imessage': 'messages', 'texts': 'messages', 'notifications': 'messages', 'grid': 'place-in-grid', 'profile-grid': 'place-in-grid'}
 LOOK_NAMES = {'glitter-spotlight': ('spotlight', 'sparkle'), 'glitter': ('spotlight', 'sparkle')}  # a named look of another effect
-CARD_FX = ('noise', 'orbit', 'carousel-spin', 'place-in-grid', 'check-pills', 'profile-wall', 'phone-fan', 'broll-split', 'timeline')
+CARD_FX = ('fan-build', 'noise', 'orbit', 'carousel-spin', 'place-in-grid', 'check-pills', 'profile-wall', 'phone-fan', 'broll-split', 'timeline')
 
 
 def effect(name, desc):
@@ -2064,6 +2064,108 @@ def fx_place_in_grid(c, e):
 # Optional private effects (not part of the public pack). If fx_private.py sits next to this file, its effects load too.
 _PRIV = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fx_private.py')
 if os.path.exists(_PRIV): exec(open(_PRIV).read(), globals())
+
+
+# ---------- pack 5: phrase pops starters (added 2 Nov 2026) ----------
+INKY, TAPE, CRAYON, CREAMY = (23, 23, 27), (255, 225, 77), (200, 40, 56), (253, 246, 200)
+def above_head(c, h): return max(c.H * 0.12 + h / 2, c.fy - c.fw * 1.75)
+
+
+@effect('tape-label', 'a strip of yellow tape with your line lands on your chest')
+def fx_tape_label(c, e):
+    k = pop(c, 0.05, 0.25) * fade(c, e)
+    if k <= 0: return
+    def tape():
+        S = int(c.W * 0.055); t = text_img(e.o.get('text', 'your own reels'), S, 'hand', INKY)
+        w, h = int(t.width + S * 0.6), int(t.height + S * 0.2); o = max(4, S // 9)
+        im = Image.new('RGBA', (w + o, h + o), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+        d.rectangle([o, o, w + o - 1, h + o - 1], fill=(17, 17, 17, 255)); d.rectangle([0, 0, w - 1, h - 1], fill=TAPE + (255,))
+        im.alpha_composite(t, ((w - t.width) // 2, (h - t.height) // 2)); return im
+    im = cached(e, 'tape', tape)
+    place(c, im, c.W / 2, clamp(c.fy + c.fw * 1.6, c.H * 0.45, c.H * 0.68), 0.85 + 0.15 * k, 0, clamp(k * 1.5), guard=True)
+
+
+@effect('select-resize', 'a blue selection box grabs your number and a cursor drags it bigger')
+def fx_select_resize(c, e):
+    al = fade(c, e) * clamp(c.lt / 0.08)
+    if al <= 0: return
+    p = ease_inout((c.lt - 0.25) / 0.7); S = int(c.W * 0.2 * (0.55 + 0.45 * p)) // 4 * 4
+    t = cached(e, ('t', S), lambda: text_img(e.o.get('text', '2X'), S, 'didone', CREAMY, shadow=8))
+    bw, bh = t.width + c.W * 0.03, t.height; cx, cy = c.W / 2, above_head(c, bh)
+    x0, y0 = cx - bw / 2, cy - bh / 2
+    lay = Image.new('RGBA', (c.W, c.H), (0, 0, 0, 0)); d = ImageDraw.Draw(lay); B = BLUE + (255,); lw = max(2, c.W // 360)
+    d.rectangle([x0, y0, x0 + bw, y0 + bh], fill=BLUE + (int(130 * (1 - 0.7 * clamp((c.lt - 0.9) / 0.3))),))
+    for (ax, ay, bx, by) in ((x0, y0, x0 + bw, y0), (x0, y0 + bh, x0 + bw, y0 + bh), (x0, y0, x0, y0 + bh), (x0 + bw, y0, x0 + bw, y0 + bh)):
+        n = max(1, int(math.hypot(bx - ax, by - ay) / (c.W * 0.018)))
+        for j in range(0, n, 2): d.line([(ax + (bx - ax) * j / n, ay + (by - ay) * j / n), (ax + (bx - ax) * (j + 1) / n, ay + (by - ay) * (j + 1) / n)], fill=B, width=lw)
+    hs = c.W * 0.009
+    for qx, qy in ((x0, y0), (x0 + bw, y0), (x0, y0 + bh), (x0 + bw, y0 + bh)): d.rectangle([qx - hs, qy - hs, qx + hs, qy + hs], fill=(255, 255, 255, 255), outline=B, width=lw)
+    comp(c, to_np(lay), 0, 0, al, behind=True); place(c, t, cx, cy, 1, 0, al, behind=True)
+    cu = cached(e, 'cu', lambda: cursor(c.W * 0.045)); place(c, cu, x0 + bw + cu.width * 0.4, y0 + bh + cu.height * 0.4, 1, 0, al)
+
+
+@effect('wave-trim', 'the silent parts of your voice are trimmed away on screen until only your words are left')
+def fx_wave_trim(c, e):
+    al = pop(c, 0, 0.2) * fade(c, e)
+    if al <= 0: return
+    p = ease_inout((c.lt - 0.25) / 0.5); pw, ph, ww = c.W * (0.84 - 0.4 * p), c.W * 0.2, c.W * 0.3
+    hts = cached(e, 'h', lambda: np.random.default_rng(3).uniform(0.15, 1, 60))
+    lay = Image.new('RGBA', (int(pw) + 2, int(ph) + 2), (0, 0, 0, 0)); d = ImageDraw.Draw(lay)
+    d.rectangle([0, 0, pw, ph], fill=INKY + (240,)); cx, cy = pw / 2, ph / 2; st = ww / len(hts)
+    for j, h in enumerate(hts):
+        x = cx - ww / 2 + j * st; v = h * ph * 0.36 * (0.55 + 0.45 * math.sin(j * 0.33))
+        d.rectangle([x, cy - v, x + st * 0.45, cy + v], fill=CREAMY + (255,))
+    r, gap = c.W * 0.0045, c.W * 0.016
+    for sd in (-1, 1):
+        x = cx + sd * (ww / 2 + gap)
+        while 0 < x < pw: d.ellipse([x - r, cy - r, x + r, cy + r], fill=RED + (255,)); x += sd * gap
+    place(c, lay, c.W / 2, above_head(c, ph), 1, 0, al, behind=True)
+
+
+@effect('huge-strike', 'one huge serif word fills the wall behind you, then a red line crosses it out')
+def fx_huge_strike(c, e):
+    al = fade(c, e)
+    t = cached(e, 't', lambda: fit_text(e.o.get('text', '8 HOURS'), c.W * 0.9, 'didone', int(c.W * 0.28), fill=CREAMY, shadow=10))
+    cw = int(t.width * ease_out(c.lt / 0.35)); cy = above_head(c, t.height)
+    if cw > 2: place(c, t.crop((0, 0, cw, t.height)), c.W / 2 - (t.width - cw) / 2, cy, 1, 0, al, behind=True)
+    at = float(e.o.get('at', 0.6)); k = ease_out((c.lt - at) / 0.18)
+    if k > 0:
+        lay = Image.new('RGBA', (c.W, c.H), (0, 0, 0, 0)); x0, x1 = c.W / 2 - t.width * 0.46, c.W / 2 + t.width * 0.46
+        pts = [(x0 + (x1 - x0) * u, cy + t.height * 0.04 - u * t.height * 0.05 + math.sin(u * 19) * c.W * 0.002) for u in np.linspace(0, 1, 40)]
+        hand_path(ImageDraw.Draw(lay), pts, RED + (255,), max(6, c.W // 80), k); comp(c, to_np(lay), 0, 0, al, behind=True)
+
+
+@effect('crayon-write', 'a red crayon writes your word behind your head, then underlines it')
+def fx_crayon_write(c, e):
+    al = fade(c, e)
+    t = cached(e, 't', lambda: fit_text(e.o.get('text', 'NOBODY'), c.W * 0.82, 'hand', int(c.W * 0.17), fill=CRAYON, shadow=4))
+    p = ease_inout((c.lt - 0.05) / 0.8); cw = int(t.width * p); cy = above_head(c, t.height); x0 = c.W / 2 - t.width / 2
+    if cw > 2: place(c, t.crop((0, 0, cw, t.height)), x0 + cw / 2, cy, 1, 0, al, behind=True)
+    if c.lt > 0.9:
+        lay = Image.new('RGBA', (c.W, c.H), (0, 0, 0, 0)); yy = cy + t.height * 0.42
+        pts = [(x0 + t.width * (0.06 + 0.88 * u), yy - u * c.W * 0.006 + math.sin(u * 23) * c.W * 0.002) for u in np.linspace(0, 1, 40)]
+        hand_path(ImageDraw.Draw(lay), pts, CRAYON + (255,), max(5, c.W // 95), ease_out((c.lt - 0.9) / 0.25)); comp(c, to_np(lay), 0, 0, al, behind=True)
+    def mk():
+        L = int(c.W * 0.22); T = int(L * 0.2); im = Image.new('RGBA', (L + T, T), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+        d.polygon([(0, T / 2), (T, 0), (T, T)], fill=(224, 58, 68, 255)); d.rounded_rectangle([T * 0.9, 0, L + T - 1, T - 1], T // 5, fill=(224, 58, 68, 255))
+        for xx in (T * 1.5, L + T * 0.4): d.rectangle([xx, 0, xx + T * 0.35, T - 1], fill=(168, 23, 40, 255))
+        return shadowed(im.rotate(-38, Image.BICUBIC, expand=True), 6, 4, 100)
+    cr = cached(e, 'cr', mk); away = ease_inout((c.lt - 1.1) / 0.3)
+    if away < 1:
+        tx, ty = x0 + cw + away * c.W * 0.6, cy + math.sin(c.lt * 30) * t.height * 0.12 + away * c.H * 0.2
+        place(c, cr, tx + cr.width * 0.47, ty + cr.height * 0.45, 1, 0, al)
+
+
+@effect('fan-build', 'your reel covers deal into a fan behind your head, one card at a time')
+def fx_fan_build(c, e):
+    n = int(e.o.get('count', 13)); al = fade(c, e); cw = int(c.W * 0.15)
+    cards = cached(e, 'cards', lambda: [card(vary(e.cards[i % len(e.cards)], i) if e.o.get('images') is None else e.cards[i % len(e.cards)], cw, 0.05) for i in range(n)])
+    px, py, R = c.fx, c.fy + c.fw * 0.1, c.fw * 2.15
+    for i in range(n):
+        t0 = 0.055 * i
+        if c.lt < t0: break
+        q = ease_out((c.lt - t0) / 0.3); a = -95 + (-62 + 124 * i / max(1, n - 1) + 95) * q; r = math.radians(a)
+        place(c, cards[i], px + R * math.sin(r), py - R * math.cos(r), 1, -a, al, behind=True)
 
 
 # ---------- video in/out + tracking ----------
