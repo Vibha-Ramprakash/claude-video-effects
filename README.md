@@ -4,7 +4,7 @@ Free viral video effects for Instagram Reels, TikTok and YouTube Shorts, made in
 
 Made by [@vibha.in.progress](https://instagram.com/vibha.in.progress) 💛
 
-> **Want the full studio?** These are the free starter versions from **[Hop Studio, my AI video editing studio inside Claude](https://vibha.is/ai-video-studio?source=effects-repo)**: 220+ video effects, 30+ caption styles and 150 sound effects, with sound design and hand-tuned timing. It runs on the Claude plan you already have.
+> **Want the full studio?** These are the free starter versions from **[Hop Studio, my AI video editing studio inside Claude](https://vibha.is/ai-video-studio?source=effects-repo)**: 220+ video effects, 47 caption styles and 190+ sound effects, with sound design and hand-tuned timing. It runs on the Claude plan you already have.
 
 ![The first 45 effects](assets/preview.jpg)
 
@@ -117,11 +117,20 @@ Every effect follows your face. Anything that would cover your face goes behind 
 ## If something goes wrong
 Just tell Claude what you see ("the word covers my face", "it's too fast"). It will fix the plan and render again.
 
-## More free tools for editing videos with Claude
+## Edit videos with Claude: the Hop Studio family
 
-- **[7 free caption styles for Claude](https://github.com/Vibha-Ramprakash/claude-caption-styles)**: animated captions timed to your voice. Type `/captions pop-sticker`.
-- **[Hop Studio · AI video editing studio](https://vibha.is/ai-video-studio?source=effects-repo)**: 220+ effects, 30+ caption styles, 150 sound effects and a free masterclass.
-- New effects every week on Instagram: [@vibha.in.progress](https://instagram.com/vibha.in.progress)
+**[Hop Studio, the AI video editor that lives inside Claude](https://vibha.is/ai-video-studio?source=video-effects-repo)**: 220+ video effects, 47 caption styles, 190+ sound effects and creator-style templates for Instagram Reels, TikTok and YouTube Shorts, in one plugin. One payment, live setup with me.
+
+Free tools:
+- **[7 free caption styles for Claude](https://github.com/Vibha-Ramprakash/claude-caption-styles)**: animated captions timed to your voice. Type `/captions pop-sticker`
+- **[7 motion style prompts for Claude Code](https://github.com/Vibha-Ramprakash/claude-motion-styles)**: copy-paste starters for motion graphics
+- **[The Claude video editor setup](https://github.com/Vibha-Ramprakash/claude-video-editor-setup)**: the exact 7 steps and 4 prompts
+- **[Free masterclass guide](https://github.com/Vibha-Ramprakash/masterclass)**: edit your videos with Claude, step by step
+- **[Fable 5.2 video editing prompts](https://github.com/Vibha-Ramprakash/fable-video-editing-guide)**: the 4 prompts from the reel
+- **[Remotion cinematic product video skill](https://github.com/Vibha-Ramprakash/remotion-cinematic-skill)**: kinetic product videos in code
+- **[Free video editing masterclass](https://vibha.is/free-masterclass?source=video-effects-repo)**: set up your editing studio in Claude with me
+
+New effects every week on Instagram: [@vibha.in.progress](https://instagram.com/vibha.in.progress)
 
 ## Credits
 Face tracking: [OpenCV YuNet](https://github.com/opencv/opencv_zoo) (MIT). Person cut-out: [MediaPipe Selfie Segmenter](https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter) (Apache 2.0). Fonts: Archivo Black, Instrument Serif, Space Mono, Inter, Anton, Montserrat (SIL OFL) and Permanent Marker (Apache 2.0); licences are in `fonts/`. Everything else: MIT, see `LICENSE`.
